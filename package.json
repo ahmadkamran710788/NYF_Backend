@@ -1,0 +1,32 @@
+{
+  "name": "nyf_backend",
+  "version": "1.0.0",
+  "description": "This is the nyf holiday ",
+  "main": "index.ts",
+  "scripts": {
+    "start": "node build/index.js",
+    "dev": "nodemon src/index.ts",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc 1>&2"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.13.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.3"
+  },
+  "dependencies": {
+    "@types/morgan": "^1.9.9",
+    "body-parser": "^1.20.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "helmet": "^8.0.0",
+    "mongoose": "^8.9.7",
+    "morgan": "^1.10.0",
+    "nodemon": "^3.1.9"
+  }
+}
