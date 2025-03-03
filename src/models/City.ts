@@ -1,11 +1,11 @@
 import mongoose, { Schema, Document } from "mongoose";
 import { IActivity } from "./Activity";
-interface ICity extends Document {
+export interface ICity extends Document {
   name: string;
   country: mongoose.Types.ObjectId;
   description?: string;
   image?: string;
-  activities: mongoose.Types.ObjectId[];
+  activities: IActivity[];
 }
 
 const CitySchema = new Schema({

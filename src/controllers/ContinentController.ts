@@ -1,69 +1,44 @@
 import { Request, Response } from "express";
 import { Continent } from "../models/Continent";
 
-export class ContinentController {
-  // Get continent with all nested data
-  static getContinentWithAll = async (req: Request, res: Response) => {
-    try {
-      const continent = await Continent.findById(
-        req.params.continentId
-      ).populate({
-        path: "countries",
-        populate: {
-          path: "cities",
-          populate: {
-            path: "activities",
-          },
-        },
-      });
+export const getAllContinents = async (req: Request, res: Response) => {
+  try {
+    const continents = await Continent.find().populate("countries");
+    res.status(200).json({
+      success: true,
+      data: continents,
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: "Error fetching continents",
+      error: error.message,
+    });
+  }
+};
 
-      if (!continent) {
-        return res.status(404).json({ message: "Continent not found" });
-      }
+export const addContinent = async (req: Request, res: Response) => {
+  try {
+    const { name, description, image } = req.body;
 
-      const allActivities = continent.countries.flatMap((country) =>
-        country.cities.flatMap((city) => city.activities)
-      );
+    const continent = new Continent({
+      name,
+      description,
+      image,
+      countries: [],
+    });
 
-      res.json({
-        continent,
-        activities: allActivities,
-      });
-    } catch (error) {
-      res.status(500).json({ message: error.message });
-    }
-  };
+    await continent.save();
 
-  // Get activities by category for a continent
-  static getContinentActivitiesByCategory = async (
-    req: Request,
-    res: Response
-  ) => {
-    try {
-      const continent = await Continent.findById(
-        req.params.continentId
-      ).populate({
-        path: "countries",
-        populate: {
-          path: "cities",
-          populate: {
-            path: "activities",
-            match: { category: req.params.category },
-          },
-        },
-      });
-
-      if (!continent) {
-        return res.status(404).json({ message: "Continent not found" });
-      }
-
-      const activities = continent.countries.flatMap((country) =>
-        country.cities.flatMap((city) => city.activities)
-      );
-
-      res.json(activities);
-    } catch (error) {
-      res.status(500).json({ message: error.message });
-    }
-  };
-}
+    res.status(201).json({
+      success: true,
+      data: continent,
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: "Error adding continent",
+      error: error.message,
+    });
+  }
+};

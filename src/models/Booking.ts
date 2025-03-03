@@ -8,7 +8,7 @@ export enum BookingStatus {
   REFUNDED = "refunded",
 }
 
-interface IBooking extends Document {
+export interface IBooking extends Document {
   activity: mongoose.Types.ObjectId;
   user: mongoose.Types.ObjectId;
   bookingDate: Date;

@@ -1,9 +1,10 @@
 import mongoose, { Schema, Document } from "mongoose";
-interface IContinent extends Document {
+import { ICountry } from "./Country";
+export interface IContinent extends Document {
   name: string;
   description?: string;
   image?: string;
-  countries: mongoose.Types.ObjectId[];
+  countries: ICountry[];
 }
 
 const ContinentSchema = new Schema({
@@ -17,4 +18,3 @@ export const Continent = mongoose.model<IContinent>(
   "Continent",
   ContinentSchema
 );
-

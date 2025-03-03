@@ -1,10 +1,12 @@
 import mongoose, { Schema, Document } from "mongoose";
-interface ICountry extends Document {
+import { ICity } from "./City";
+
+export interface ICountry extends Document {
   name: string;
   continent: mongoose.Types.ObjectId;
   description?: string;
   image?: string;
-  cities: mongoose.Types.ObjectId[];
+  cities: ICity[];
 }
 
 const CountrySchema = new Schema({
