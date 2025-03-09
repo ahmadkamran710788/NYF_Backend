@@ -5,7 +5,7 @@ import {
   getActivitiesByContinent,
   addActivity,
 } from "../controllers/ActivityController";
-
+import upload from "../middleware/uploadMiddleware";
 const router = express.Router();
 
 // @route   GET /api/activities
@@ -16,7 +16,7 @@ router.get("/", getAllActivities);
 // @route   POST /api/activities
 // @desc    Add a new activity
 // @access  Private/Admin
-router.post("/", addActivity);
+router.post("/", upload.array("files", 10), addActivity);
 
 // @route   GET /api/activities/categories/:category
 // @desc    Get activities by category with filtering

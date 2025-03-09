@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { Country } from "../models/Country";
 import { Continent } from "../models/Continent";
 import mongoose from "mongoose";
-
+import { uploadToCloudinary } from "../utils/CloudinaryHelper";
 // Get all countries across continents
 export const getAllCountries = async (req: Request, res: Response) => {
   try {
@@ -23,13 +23,56 @@ export const getAllCountries = async (req: Request, res: Response) => {
     });
   }
 };
-
+interface MulterRequest extends Request {
+  file?: Express.Multer.File;
+}
 // Add a new country
-export const addCountry = async (req: Request, res: Response): Promise<any> => {
+export const addCountry = async (
+  req: MulterRequest,
+  res: Response
+): Promise<any> => {
   try {
-    const { name, continentId, description, image } = req.body;
-
+    const { name, continentId, description } = req.body;
+    let image_url: string | undefined;
     // Validate continent exists
+    if (!name || !continentId) {
+      res.status(400).json({
+        success: false,
+        message: "Name and continentId are required fields",
+      });
+      return;
+    }
+
+    const existingCountry = await Country.findOne({
+      name,
+      continent: continentId,
+    });
+    if (existingCountry) {
+      return res.status(400).json({
+        success: false,
+        message: "Country already exists in this continent",
+      });
+    }
+    if (req.file) {
+      try {
+        const filePath = req.file.path;
+        const uploadResult = await uploadToCloudinary(
+          filePath,
+          "country_images"
+        );
+        image_url = uploadResult.url;
+
+        // Optional: Clean up the temporary file
+        // await fs.unlink(filePath);
+      } catch (uploadError: any) {
+        res.status(400).json({
+          success: false,
+          message: "Error uploading image",
+          error: uploadError.message,
+        });
+        return;
+      }
+    }
     const continent = await Continent.findById(continentId);
     if (!continent) {
       return res.status(404).json({
@@ -43,7 +86,7 @@ export const addCountry = async (req: Request, res: Response): Promise<any> => {
       name,
       continent: continentId,
       description,
-      image,
+      image: image_url,
       cities: [],
     });
 

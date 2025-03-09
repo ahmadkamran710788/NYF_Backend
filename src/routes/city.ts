@@ -2,7 +2,7 @@
 import express from "express";
 import { getAllCities, addCity } from "../controllers/CityController";
 import { getActivitiesByCity } from "../controllers/ActivityController";
-
+import upload from "../middleware/uploadMiddleware";
 const router = express.Router();
 
 // @route   GET /api/cities
@@ -13,7 +13,7 @@ router.get("/", getAllCities);
 // @route   POST /api/cities
 // @desc    Add a new city
 // @access  Private/Admin
-router.post("/", addCity);
+router.post("/", upload.single("file"), addCity);
 
 // @route   GET /api/cities/:cityId/activities
 // @desc    Get all activities in a city with filtering

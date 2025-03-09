@@ -4,7 +4,7 @@ import { Activity, ActivityCategory } from "../models/Activity";
 import { City } from "../models/City";
 import { Country } from "../models/Country";
 import mongoose from "mongoose";
-
+import { uploadToCloudinary } from "../utils/CloudinaryHelper";
 // Helper function to build filter based on query params
 const buildActivityFilter = (query: any) => {
   const filter: any = {};
@@ -210,8 +210,109 @@ export const getActivitiesByCategory = async (
 };
 
 // Add a new activity
+interface MulterRequest extends Request {
+  file?: Express.Multer.File;
+}
+// export const addActivity = async (
+//   req: MulterRequest,
+//   res: Response
+// ): Promise<any> => {
+//   try {
+//     const {
+//       name,
+//       category,
+//       cityId,
+//       description,
+//       originalPrice,
+//       discountPrice,
+//       duration,
+//       includes,
+//       highlights,
+//       isInstantConfirmation,
+//       isMobileTicket,
+//       isRefundable,
+//     } = req.body;
+
+//     // Validate city exists
+//     const city = await City.findById(cityId);
+
+//     if (!city) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "City not found",
+//       });
+//     }
+
+//     let imageUrls: string[] = [];
+
+//     // Validate category
+//     if (
+//       !Object.values(ActivityCategory).includes(category as ActivityCategory)
+//     ) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Invalid category",
+//       });
+//     }
+
+//     if (req.files && Array.isArray(req.files)) {
+//       for (const file of req.files as Express.Multer.File[]) {
+//         try {
+//           const uploadResult = await uploadToCloudinary(
+//             file.path,
+//             "activity_images"
+//           );
+//           imageUrls.push(uploadResult.url);
+//         } catch (uploadError: any) {
+//           console.error("Error uploading image:", uploadError);
+//           return res.status(400).json({
+//             success: false,
+//             message: "Error uploading image",
+//             error: uploadError.message,
+//           });
+//         }
+//       }
+//     }
+
+//     // Create new activity
+//     const activity = new Activity({
+//       name,
+//       category,
+//       city: cityId,
+//       description,
+//       images: imageUrls || [],
+//       originalPrice,
+//       discountPrice,
+//       duration,
+//       includes: includes || [],
+//       highlights: highlights || [],
+//       isInstantConfirmation: isInstantConfirmation || false,
+//       isMobileTicket: isMobileTicket || false,
+//       isRefundable: isRefundable || false,
+//     });
+
+//     await activity.save();
+
+//     // Update city with the new activity
+//     await City.findByIdAndUpdate(cityId, {
+//       $push: { activities: activity._id },
+//     });
+
+//     res.status(201).json({
+//       success: true,
+//       data: activity,
+//     });
+//   } catch (error: any) {
+//     res.status(500).json({
+//       success: false,
+//       message: "Error adding activity",
+//       error: error.message,
+//     });
+//   }
+// };
+
 export const addActivity = async (
-  req: Request,
+  req: MulterRequest,
   res: Response
 ): Promise<any> => {
   try {
@@ -220,12 +321,11 @@ export const addActivity = async (
       category,
       cityId,
       description,
-      images,
       originalPrice,
       discountPrice,
       duration,
-      includes,
-      highlights,
+      includes, // Array field for 'includes'
+      highlights, // Array field for 'highlights'
       isInstantConfirmation,
       isMobileTicket,
       isRefundable,
@@ -233,12 +333,15 @@ export const addActivity = async (
 
     // Validate city exists
     const city = await City.findById(cityId);
+
     if (!city) {
       return res.status(404).json({
         success: false,
         message: "City not found",
       });
     }
+
+    let imageUrls: string[] = [];
 
     // Validate category
     if (
@@ -250,21 +353,49 @@ export const addActivity = async (
       });
     }
 
+    // Make sure 'includes' and 'highlights' are arrays (if passed as strings, parse them)
+    const includesArray = Array.isArray(includes)
+      ? includes
+      : JSON.parse(includes || "[]");
+    const highlightsArray = Array.isArray(highlights)
+      ? highlights
+      : JSON.parse(highlights || "[]");
+
+    // Handle file uploads if present
+    if (req.files && Array.isArray(req.files)) {
+      for (const file of req.files as Express.Multer.File[]) {
+        try {
+          const uploadResult = await uploadToCloudinary(
+            file.path,
+            "activity_images"
+          );
+          imageUrls.push(uploadResult.url);
+        } catch (uploadError: any) {
+          console.error("Error uploading image:", uploadError);
+          return res.status(400).json({
+            success: false,
+            message: "Error uploading image",
+            error: uploadError.message,
+          });
+        }
+      }
+    }
+
     // Create new activity
     const activity = new Activity({
       name,
       category,
       city: cityId,
       description,
-      images: images || [],
+      images: imageUrls || [],
       originalPrice,
       discountPrice,
       duration,
-      includes: includes || [],
-      highlights: highlights || [],
-      isInstantConfirmation: isInstantConfirmation || false,
-      isMobileTicket: isMobileTicket || false,
-      isRefundable: isRefundable || false,
+      includes: includesArray, // Save as array
+      highlights: highlightsArray, // Save as array
+      isInstantConfirmation,
+      isMobileTicket,
+      isRefundable,
     });
 
     await activity.save();

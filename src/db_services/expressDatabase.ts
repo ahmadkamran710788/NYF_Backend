@@ -28,7 +28,7 @@ export default async (app: Application) => {
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
   app.use("/image", express.static(path.join(__dirname, "image")));
-  app.use("nyf", routes);
+  app.use("/nyf", routes);
   //   app.use("/admin", AdminRoutes);
   //   app.use("/vender", VenderRoutes);
   //   app.use(ShoppingRoutes);
