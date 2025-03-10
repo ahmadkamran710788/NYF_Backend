@@ -3,6 +3,7 @@ import { Request, Response } from "express";
 import { Activity, ActivityCategory } from "../models/Activity";
 import { City } from "../models/City";
 import { Country } from "../models/Country";
+import { Continent } from "../models/Continent";
 import mongoose from "mongoose";
 import { uploadToCloudinary } from "../utils/CloudinaryHelper";
 // Helper function to build filter based on query params
@@ -33,29 +34,109 @@ const buildActivityFilter = (query: any) => {
 
   return filter;
 };
-
-// Get all activities across all cities with filtering
 export const getAllActivities = async (req: Request, res: Response) => {
   try {
     const filter = buildActivityFilter(req.query);
+    const { countryName, cityName, continentName } = req.query;
 
-    const activities = await Activity.find(filter).populate({
-      path: "city",
-      select: "name country",
-      populate: {
-        path: "country",
-        select: "name continent",
+    // Pagination parameters
+    const page = parseInt(req.query.page as string) || 1; // Default to page 1
+    const limit = parseInt(req.query.limit as string) || 10; // Default to 10 items per page
+    const skip = (page - 1) * limit;
+
+    // Create aggregation pipeline for location-based filtering
+    let locationPipeline = [];
+
+    if (continentName) {
+      // First find continents with matching name
+      const continents = await Continent.find({
+        name: { $regex: new RegExp(String(continentName), "i") },
+      });
+      const continentIds = continents.map((continent) => continent._id);
+
+      // Find countries in these continents
+      const countries = await Country.find({
+        continent: { $in: continentIds },
+      });
+      const countryIds = countries.map((country) => country._id);
+
+      // Find cities in these countries
+      const cities = await City.find({
+        country: { $in: countryIds },
+      });
+      const cityIds = cities.map((city) => city._id);
+
+      if (cityIds.length > 0) {
+        // Add city filter
+        filter.city = { $in: cityIds };
+      }
+    } else if (countryName) {
+      // Find countries with matching name
+      const countries = await Country.find({
+        name: { $regex: new RegExp(String(countryName), "i") },
+      });
+      const countryIds = countries.map((country) => country._id);
+
+      // Find cities in these countries
+      const cities = await City.find({
+        country: { $in: countryIds },
+      });
+      const cityIds = cities.map((city) => city._id);
+
+      if (cityIds.length > 0) {
+        // Add city filter
+        filter.city = { $in: cityIds };
+      }
+    } else if (cityName) {
+      // Find cities with matching name
+      const cities = await City.find({
+        name: { $regex: new RegExp(String(cityName), "i") },
+      });
+      const cityIds = cities.map((city) => city._id);
+
+      if (cityIds.length > 0) {
+        // Add city filter
+        filter.city = { $in: cityIds };
+      }
+    }
+
+    // Get total count for pagination metadata
+    const totalActivities = await Activity.countDocuments(filter);
+
+    // Get paginated results
+    const activities = await Activity.find(filter)
+      .populate({
+        path: "city",
+        select: "name country",
         populate: {
-          path: "continent",
-          select: "name",
+          path: "country",
+          select: "name continent",
+          populate: {
+            path: "continent",
+            select: "name",
+          },
         },
-      },
-    });
+      })
+      .skip(skip)
+      .limit(limit);
+
+    // Calculate pagination metadata
+    const totalPages = Math.ceil(totalActivities / limit);
+    const hasNextPage = page < totalPages;
+    const hasPrevPage = page > 1;
 
     res.status(200).json({
       success: true,
       count: activities.length,
       data: activities,
+      pagination: {
+        totalItems: totalActivities,
+        totalPages,
+        currentPage: page,
+        itemsPerPage: limit,
+        hasNextPage,
+        hasPrevPage,
+      },
     });
   } catch (error: any) {
     res.status(500).json({
@@ -65,7 +146,6 @@ export const getAllActivities = async (req: Request, res: Response) => {
     });
   }
 };
-
 // Get activities by city with filtering
 export const getActivitiesByCity = async (req: Request, res: Response) => {
   try {

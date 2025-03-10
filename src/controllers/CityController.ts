@@ -9,7 +9,18 @@ import { uploadToCloudinary } from "../utils/CloudinaryHelper";
 // Get all cities across countries
 export const getAllCities = async (req: Request, res: Response) => {
   try {
-    const cities = await City.find().populate({
+
+     const { country: countryId } = req.query;
+        
+        // Build filter based on continent query
+        const filter: any = {};
+        if (countryId) {
+          filter.country = countryId;
+        }
+        
+       
+    
+    const cities = await City.find(filter).populate({
       path: "country",
       select: "name continent",
       populate: {

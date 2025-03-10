@@ -4,9 +4,19 @@ import { Continent } from "../models/Continent";
 import mongoose from "mongoose";
 import { uploadToCloudinary } from "../utils/CloudinaryHelper";
 // Get all countries across continents
+
 export const getAllCountries = async (req: Request, res: Response) => {
   try {
-    const countries = await Country.find()
+    // Extract continent query parameter
+    const { continent: continentId } = req.query;
+    
+    // Build filter based on continent query
+    const filter: any = {};
+    if (continentId) {
+      filter.continent = continentId;
+    }
+    
+    const countries = await Country.find(filter)
       .populate("continent", "name")
       .populate("cities");
 
