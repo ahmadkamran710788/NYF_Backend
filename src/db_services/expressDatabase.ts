@@ -13,13 +13,12 @@ import bodyParser from "body-parser";
 import cors from "cors";
 
 export default async (app: Application) => {
-  app.use(bodyParser.json({ limit: "1gb" }));
-  app.use(bodyParser.urlencoded({ limit: "1gb", extended: true }));
+  app.use(bodyParser.urlencoded({ extended: true }));
+  app.use(bodyParser.json());
   app.use(
     cors({
-      origin: process.env.FRONTEND_URL || "https://16.170.56.82:3000",
-      credentials: true,
-      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+      origin: "*",
+      methods: ["GET", "POST", "PUT", "DELETE"],
       allowedHeaders: ["Content-Type", "Authorization"],
     })
   );
