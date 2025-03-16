@@ -34,76 +34,130 @@ const buildActivityFilter = (query: any) => {
 
   return filter;
 };
-export const getAllActivities = async (req: Request, res: Response) => {
+export const getAllActivities = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   try {
+    // Basic filter from query parameters
     const filter = buildActivityFilter(req.query);
     const { countryName, cityName, continentName } = req.query;
 
     // Pagination parameters
-    const page = parseInt(req.query.page as string) || 1; // Default to page 1
-    const limit = parseInt(req.query.limit as string) || 10; // Default to 10 items per page
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
     const skip = (page - 1) * limit;
 
-    // Create aggregation pipeline for location-based filtering
-    let locationPipeline = [];
+    // Location-based filtering
+    if (continentName || countryName || cityName) {
+      let cityQuery = {};
 
-    if (continentName) {
-      // First find continents with matching name
-      const continents = await Continent.find({
-        name: { $regex: new RegExp(String(continentName), "i") },
-      });
-      const continentIds = continents.map((continent) => continent._id);
+      if (continentName) {
+        // Find cities through continent -> country -> city hierarchy
+        const continents = await Continent.find({
+          name: { $regex: new RegExp(String(continentName), "i") },
+        });
 
-      // Find countries in these continents
-      const countries = await Country.find({
-        continent: { $in: continentIds },
-      });
-      const countryIds = countries.map((country) => country._id);
+        if (continents.length > 0) {
+          const continentIds = continents.map((continent) => continent._id);
 
-      // Find cities in these countries
-      const cities = await City.find({
-        country: { $in: countryIds },
-      });
-      const cityIds = cities.map((city) => city._id);
+          const countries = await Country.find({
+            continent: { $in: continentIds },
+          });
 
-      if (cityIds.length > 0) {
-        // Add city filter
-        filter.city = { $in: cityIds };
+          if (countries.length > 0) {
+            const countryIds = countries.map((country) => country._id);
+            cityQuery = { country: { $in: countryIds } };
+          } else {
+            // No matching countries found, return empty result
+            return res.status(200).json({
+              success: true,
+              count: 0,
+              data: [],
+              pagination: {
+                totalItems: 0,
+                totalPages: 0,
+                currentPage: page,
+                itemsPerPage: limit,
+                hasNextPage: false,
+                hasPrevPage: false,
+              },
+            });
+          }
+        } else {
+          // No matching continents found, return empty result
+          return res.status(200).json({
+            success: true,
+            count: 0,
+            data: [],
+            pagination: {
+              totalItems: 0,
+              totalPages: 0,
+              currentPage: page,
+              itemsPerPage: limit,
+              hasNextPage: false,
+              hasPrevPage: false,
+            },
+          });
+        }
+      } else if (countryName) {
+        // Find cities through country -> city hierarchy
+        const countries = await Country.find({
+          name: { $regex: new RegExp(String(countryName), "i") },
+        });
+
+        if (countries.length > 0) {
+          const countryIds = countries.map((country) => country._id);
+          cityQuery = { country: { $in: countryIds } };
+        } else {
+          // No matching countries found, return empty result
+          return res.status(200).json({
+            success: true,
+            count: 0,
+            data: [],
+            pagination: {
+              totalItems: 0,
+              totalPages: 0,
+              currentPage: page,
+              itemsPerPage: limit,
+              hasNextPage: false,
+              hasPrevPage: false,
+            },
+          });
+        }
+      } else if (cityName) {
+        // Direct city filter
+        cityQuery = { name: { $regex: new RegExp(String(cityName), "i") } };
       }
-    } else if (countryName) {
-      // Find countries with matching name
-      const countries = await Country.find({
-        name: { $regex: new RegExp(String(countryName), "i") },
-      });
-      const countryIds = countries.map((country) => country._id);
 
-      // Find cities in these countries
-      const cities = await City.find({
-        country: { $in: countryIds },
-      });
-      const cityIds = cities.map((city) => city._id);
+      // Get matching city IDs
+      const cities = await City.find(cityQuery);
 
-      if (cityIds.length > 0) {
-        // Add city filter
+      if (cities.length > 0) {
+        const cityIds = cities.map((city) => city._id);
         filter.city = { $in: cityIds };
-      }
-    } else if (cityName) {
-      // Find cities with matching name
-      const cities = await City.find({
-        name: { $regex: new RegExp(String(cityName), "i") },
-      });
-      const cityIds = cities.map((city) => city._id);
-
-      if (cityIds.length > 0) {
-        // Add city filter
-        filter.city = { $in: cityIds };
+      } else {
+        // No matching cities found, return empty result
+        return res.status(200).json({
+          success: true,
+          count: 0,
+          data: [],
+          pagination: {
+            totalItems: 0,
+            totalPages: 0,
+            currentPage: page,
+            itemsPerPage: limit,
+            hasNextPage: false,
+            hasPrevPage: false,
+          },
+        });
       }
     }
 
     // Get total count for pagination metadata
     const totalActivities = await Activity.countDocuments(filter);
 
-    // Get paginated results
+    // Get paginated results with populated data
     const activities = await Activity.find(filter)
       .populate({
         path: "city",
@@ -118,14 +172,15 @@ export const getAllActivities = async (req: Request, res: Response) => {
         },
       })
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .lean(); // Using lean() for better performance on read-only data
 
     // Calculate pagination metadata
     const totalPages = Math.ceil(totalActivities / limit);
     const hasNextPage = page < totalPages;
     const hasPrevPage = page > 1;
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       count: activities.length,
       data: activities,
@@ -139,7 +194,8 @@ export const getAllActivities = async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    res.status(500).json({
+    console.error("Error in getAllActivities:", error);
+    return res.status(500).json({
       success: false,
       message: "Error fetching activities",
       error: error.message,
