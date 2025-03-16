@@ -3,6 +3,7 @@ import { Continent } from "../models/Continent";
 import { uploadToCloudinary } from "../utils/CloudinaryHelper";
 export const getAllContinents = async (req: Request, res: Response) => {
   try {
+    console.log("get all");
     const continents = await Continent.find().populate("countries");
     res.status(200).json({
       success: true,
