@@ -6,8 +6,12 @@
   "scripts": {
     "start": "node build/index.js",
     "dev": "nodemon src/index.ts",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tsc 1>&2"
+    "build": "tsc -p .",
+    "postinstall": "npm run build"
+  },
+  "engines": {
+    "node": "v20.11.1",
+    "npm": "10.2.4"
   },
   "author": "",
   "license": "ISC",
