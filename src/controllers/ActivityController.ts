@@ -207,15 +207,21 @@ export const getActivitiesByCity = async (req: Request, res: Response) => {
   try {
     const { cityId } = req.params;
     const filter = buildActivityFilter(req.query);
-
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const skip = (page - 1) * limit;
     // Add city filter
     filter.city = new mongoose.Types.ObjectId(cityId);
 
-    const activities = await Activity.find(filter);
+    const activities = await Activity.find(filter).skip(skip).limit(limit);
+
+    const total = await Activity.countDocuments(filter);
 
     res.status(200).json({
       success: true,
       count: activities.length,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
       data: activities,
     });
   } catch (error: any) {
@@ -232,6 +238,9 @@ export const getActivitiesByCountry = async (req: Request, res: Response) => {
   try {
     const { countryId } = req.params;
     const filter = buildActivityFilter(req.query);
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const skip = (page - 1) * limit;
 
     // Get all cities for this country
     const cities = await City.find({ country: countryId });
@@ -240,11 +249,17 @@ export const getActivitiesByCountry = async (req: Request, res: Response) => {
     // Add cities filter
     filter.city = { $in: cityIds };
 
-    const activities = await Activity.find(filter).populate("city", "name");
+    const activities = await Activity.find(filter)
+      .skip(skip)
+      .limit(limit)
+      .populate("city", "name");
+    const total = await Activity.countDocuments(filter);
 
     res.status(200).json({
       success: true,
       count: activities.length,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
       data: activities,
     });
   } catch (error: any) {
@@ -261,7 +276,9 @@ export const getActivitiesByContinent = async (req: Request, res: Response) => {
   try {
     const { continentId } = req.params;
     const filter = buildActivityFilter(req.query);
-
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const skip = (page - 1) * limit;
     // Get countries in this continent
     const countries = await Country.find({ continent: continentId });
 
@@ -273,18 +290,23 @@ export const getActivitiesByContinent = async (req: Request, res: Response) => {
     // Add cities filter
     filter.city = { $in: cities.map((city) => city._id) };
 
-    const activities = await Activity.find(filter).populate({
-      path: "city",
-      select: "name country",
-      populate: {
-        path: "country",
-        select: "name",
-      },
-    });
-
+    const activities = await Activity.find(filter)
+      .skip(skip)
+      .limit(limit)
+      .populate({
+        path: "city",
+        select: "name country",
+        populate: {
+          path: "country",
+          select: "name",
+        },
+      });
+    const total = await Activity.countDocuments(filter);
     res.status(200).json({
       success: true,
       count: activities.length,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
       data: activities,
     });
   } catch (error: any) {
@@ -305,6 +327,11 @@ export const getActivitiesByCategory = async (
     const { category } = req.params;
     const filter = buildActivityFilter(req.query);
 
+    // Pagination parameters
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const skip = (page - 1) * limit;
+
     // Validate category
     if (
       !Object.values(ActivityCategory).includes(category as ActivityCategory)
@@ -318,22 +345,29 @@ export const getActivitiesByCategory = async (
     // Add category filter
     filter.category = category;
 
-    const activities = await Activity.find(filter).populate({
-      path: "city",
-      select: "name country",
-      populate: {
-        path: "country",
-        select: "name continent",
+    const activities = await Activity.find(filter)
+      .skip(skip)
+      .limit(limit)
+      .populate({
+        path: "city",
+        select: "name country",
         populate: {
-          path: "continent",
-          select: "name",
+          path: "country",
+          select: "name continent",
+          populate: {
+            path: "continent",
+            select: "name",
+          },
         },
-      },
-    });
+      });
+
+    const total = await Activity.countDocuments(filter);
 
     res.status(200).json({
       success: true,
       count: activities.length,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
       data: activities,
     });
   } catch (error: any) {
