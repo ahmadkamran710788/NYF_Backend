@@ -34,6 +34,30 @@ const buildActivityFilter = (query: any) => {
 
   return filter;
 };
+
+export const getAllCategory = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    // Get all categories as an array from the enum
+    const categories = Object.values(ActivityCategory);
+
+    // Return the categories
+    return res.status(200).json({
+      success: true,
+      count: categories.length,
+      data: categories,
+    });
+  } catch (error) {
+    console.error("Error fetching categories:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+};
 export const getAllActivities = async (
   req: Request,
   res: Response

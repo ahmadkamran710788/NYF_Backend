@@ -4,6 +4,7 @@ import {
   getActivitiesByCategory,
   getActivitiesByContinent,
   addActivity,
+  getAllCategory,
 } from "../controllers/ActivityController";
 import upload from "../middleware/uploadMiddleware";
 const router = express.Router();
@@ -27,5 +28,6 @@ router.get("/categories/:category", getActivitiesByCategory);
 // @desc    Get activities by continent with filtering
 // @access  Public
 router.get("/continents/:continentId", getActivitiesByContinent);
+router.get("/category", getAllCategory);
 
 export default router;
