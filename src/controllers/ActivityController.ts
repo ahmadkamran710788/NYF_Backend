@@ -65,7 +65,12 @@ export const getAllActivities = async (
   try {
     // Basic filter from query parameters
     const filter = buildActivityFilter(req.query);
-    const { countryName, cityName, continentName } = req.query;
+    let { countryName, cityName, continentName } = req.query;
+
+    // Convert single value params to arrays for consistent handling
+    if (countryName && !Array.isArray(countryName)) countryName = [countryName as string];
+    if (cityName && !Array.isArray(cityName)) cityName = [cityName as string];
+    if (continentName && !Array.isArray(continentName)) continentName = [continentName as string];
 
     // Pagination parameters
     const page = parseInt(req.query.page as string) || 1;
@@ -74,12 +79,17 @@ export const getAllActivities = async (
 
     // Location-based filtering
     if (continentName || countryName || cityName) {
-      let cityQuery = {};
+      let cityQuery: any = {};
+      let cityIds: any[] = [];
 
-      if (continentName) {
-        // Find cities through continent -> country -> city hierarchy
+      // Handle continent-based filtering
+      if (continentName && Array.isArray(continentName) && continentName.length > 0) {
+        const regexPatterns = (continentName as string[]).map(
+          name => new RegExp(String(name), "i")
+        );
+        
         const continents = await Continent.find({
-          name: { $regex: new RegExp(String(continentName), "i") },
+          name: { $in: regexPatterns },
         });
 
         if (continents.length > 0) {
@@ -91,74 +101,58 @@ export const getAllActivities = async (
 
           if (countries.length > 0) {
             const countryIds = countries.map((country) => country._id);
-            cityQuery = { country: { $in: countryIds } };
-          } else {
-            // No matching countries found, return empty result
-            return res.status(200).json({
-              success: true,
-              count: 0,
-              data: [],
-              pagination: {
-                totalItems: 0,
-                totalPages: 0,
-                currentPage: page,
-                itemsPerPage: limit,
-                hasNextPage: false,
-                hasPrevPage: false,
-              },
+            
+            const citiesFromContinents = await City.find({
+              country: { $in: countryIds },
             });
+            
+            // Add found city IDs to our collection
+            cityIds = [...cityIds, ...citiesFromContinents.map(city => city._id)];
           }
-        } else {
-          // No matching continents found, return empty result
-          return res.status(200).json({
-            success: true,
-            count: 0,
-            data: [],
-            pagination: {
-              totalItems: 0,
-              totalPages: 0,
-              currentPage: page,
-              itemsPerPage: limit,
-              hasNextPage: false,
-              hasPrevPage: false,
-            },
-          });
         }
-      } else if (countryName) {
-        // Find cities through country -> city hierarchy
+      }
+
+      // Handle country-based filtering
+      if (countryName && Array.isArray(countryName) && countryName.length > 0) {
+        const regexPatterns = (countryName as string[]).map(
+          name => new RegExp(String(name), "i")
+        );
+        
         const countries = await Country.find({
-          name: { $regex: new RegExp(String(countryName), "i") },
+          name: { $in: regexPatterns },
         });
 
         if (countries.length > 0) {
           const countryIds = countries.map((country) => country._id);
-          cityQuery = { country: { $in: countryIds } };
-        } else {
-          // No matching countries found, return empty result
-          return res.status(200).json({
-            success: true,
-            count: 0,
-            data: [],
-            pagination: {
-              totalItems: 0,
-              totalPages: 0,
-              currentPage: page,
-              itemsPerPage: limit,
-              hasNextPage: false,
-              hasPrevPage: false,
-            },
+          
+          const citiesFromCountries = await City.find({
+            country: { $in: countryIds },
           });
+          
+          // Add found city IDs to our collection
+          cityIds = [...cityIds, ...citiesFromCountries.map(city => city._id)];
         }
-      } else if (cityName) {
-        // Direct city filter
-        cityQuery = { name: { $regex: new RegExp(String(cityName), "i") } };
       }
 
-      // Get matching city IDs
-      const cities = await City.find(cityQuery);
+      // Handle city-based filtering
+      if (cityName && Array.isArray(cityName) && cityName.length > 0) {
+        const regexPatterns = (cityName as string[]).map(
+          name => new RegExp(String(name), "i")
+        );
+        
+        const citiesDirectMatch = await City.find({
+          name: { $in: regexPatterns },
+        });
+        
+        // Add found city IDs to our collection
+        cityIds = [...cityIds, ...citiesDirectMatch.map(city => city._id)];
+      }
 
-      if (cities.length > 0) {
-        const cityIds = cities.map((city) => city._id);
+      // Remove duplicates from cityIds
+      cityIds = [...new Set(cityIds)];
+
+      // If we have matching cities, add to filter
+      if (cityIds.length > 0) {
         filter.city = { $in: cityIds };
       } else {
         // No matching cities found, return empty result
