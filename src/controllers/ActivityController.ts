@@ -67,10 +67,10 @@ export const getAllActivities = async (
     const filter = buildActivityFilter(req.query);
     let { countryName, cityName, continentName } = req.query;
 
-    // Convert single value params to arrays for consistent handling
-    if (countryName && !Array.isArray(countryName)) countryName = [countryName as string];
-    if (cityName && !Array.isArray(cityName)) cityName = [cityName as string];
-    if (continentName && !Array.isArray(continentName)) continentName = [continentName as string];
+    // Process comma-separated values for location parameters
+    const countries = countryName ? String(countryName).split(',').filter(Boolean) : [];
+    const cities = cityName ? String(cityName).split(',').filter(Boolean) : [];
+    const continents = continentName ? String(continentName).split(',').filter(Boolean) : [];
 
     // Pagination parameters
     const page = parseInt(req.query.page as string) || 1;
@@ -78,29 +78,28 @@ export const getAllActivities = async (
     const skip = (page - 1) * limit;
 
     // Location-based filtering
-    if (continentName || countryName || cityName) {
-      let cityQuery: any = {};
+    if (continents.length > 0 || countries.length > 0 || cities.length > 0) {
       let cityIds: any[] = [];
 
       // Handle continent-based filtering
-      if (continentName && Array.isArray(continentName) && continentName.length > 0) {
-        const regexPatterns = (continentName as string[]).map(
+      if (continents.length > 0) {
+        const regexPatterns = continents.map(
           name => new RegExp(String(name), "i")
         );
         
-        const continents = await Continent.find({
+        const foundContinents = await Continent.find({
           name: { $in: regexPatterns },
         });
 
-        if (continents.length > 0) {
-          const continentIds = continents.map((continent) => continent._id);
+        if (foundContinents.length > 0) {
+          const continentIds = foundContinents.map((continent) => continent._id);
 
-          const countries = await Country.find({
+          const foundCountries = await Country.find({
             continent: { $in: continentIds },
           });
 
-          if (countries.length > 0) {
-            const countryIds = countries.map((country) => country._id);
+          if (foundCountries.length > 0) {
+            const countryIds = foundCountries.map((country) => country._id);
             
             const citiesFromContinents = await City.find({
               country: { $in: countryIds },
@@ -113,17 +112,17 @@ export const getAllActivities = async (
       }
 
       // Handle country-based filtering
-      if (countryName && Array.isArray(countryName) && countryName.length > 0) {
-        const regexPatterns = (countryName as string[]).map(
+      if (countries.length > 0) {
+        const regexPatterns = countries.map(
           name => new RegExp(String(name), "i")
         );
         
-        const countries = await Country.find({
+        const foundCountries = await Country.find({
           name: { $in: regexPatterns },
         });
 
-        if (countries.length > 0) {
-          const countryIds = countries.map((country) => country._id);
+        if (foundCountries.length > 0) {
+          const countryIds = foundCountries.map((country) => country._id);
           
           const citiesFromCountries = await City.find({
             country: { $in: countryIds },
@@ -135,8 +134,8 @@ export const getAllActivities = async (
       }
 
       // Handle city-based filtering
-      if (cityName && Array.isArray(cityName) && cityName.length > 0) {
-        const regexPatterns = (cityName as string[]).map(
+      if (cities.length > 0) {
+        const regexPatterns = cities.map(
           name => new RegExp(String(name), "i")
         );
         
