@@ -7,18 +7,24 @@ import { uploadToCloudinary } from "../utils/CloudinaryHelper";
 // Define interface to extend Express Request with file property
 
 // Get all cities across countries
-export const getAllCities = async (req: Request, res: Response) => {
+export const getAllCities = async (req: Request, res: Response): Promise<any> => {
   try {
-
-     const { country: countryId } = req.query;
-        
-        // Build filter based on continent query
-        const filter: any = {};
-        if (countryId) {
-          filter.country = countryId;
-        }
-        
-       
+    const countryParam = req.query.country;
+    
+    // Build filter based on country query
+    const filter: any = {};
+    
+    if (countryParam) {
+      // Handle both comma-separated string and array of strings from req.query
+      const countryIds = Array.isArray(countryParam) 
+        ? countryParam.join(',').split(',') 
+        : String(countryParam).split(',');
+      
+      // Only add to filter if we have valid country IDs
+      if (countryIds.length > 0) {
+        filter.country = { $in: countryIds };
+      }
+    }
     
     const cities = await City.find(filter).populate({
       path: "country",
@@ -28,7 +34,7 @@ export const getAllCities = async (req: Request, res: Response) => {
         select: "name",
       },
     });
-
+    
     res.status(200).json({
       success: true,
       count: cities.length,
