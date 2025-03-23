@@ -44,10 +44,19 @@ export const getPackageById = async (req: Request, res: Response): Promise<void>
 
 // Create new package
 // Create new package
-export const createPackage = async (req: Request, res: Response): Promise<void> => {
+export const createPackage = async (req: Request, res: Response): Promise<any> => {
     try {
       const packageData: IHolidayPackage = req.body;
       
+
+      const existingPackage = await HolidayPackage.findOne({ name: packageData.name });
+
+    if (existingPackage) {
+      return  res.status(400).json({
+        success: false,
+        message: "A holiday package with this name already exists",
+      });
+    }
       // Handle image uploads
       let imageUrls: string[] = [];
       
@@ -218,7 +227,11 @@ export const getPackagesByDestination = async (req: Request, res: Response): Pro
     }
     
     const packages = await HolidayPackage.find({ destination: destinationId })
-      .populate('destination');
+    .populate('destination')
+    .populate({
+      path: 'itinerary.activities',
+      model: 'Activity'
+    });
     
     res.status(200).json({ success: true, data: packages });
   } catch (error) {
