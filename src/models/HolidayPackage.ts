@@ -3,10 +3,8 @@ import { ActivityCategory } from "./Activity";
 
 // Enum for package types
 export enum PackageType {
-  ECONOMY = "economy",
-  STANDARD = "standard",
-  PREMIUM = "premium",
-  LUXURY = "luxury"
+  HOLIDAY = "holiday",
+  HONEYMOON = "honeymoon",
 }
 
 // Interface for day-by-day itinerary
@@ -78,7 +76,7 @@ const HolidayPackageSchema = new Schema({
   terms: [{ type: String }],
   notes: [{ type: String }],
   paymentPolicy: { type: String },
-  isRefundable: { type: Boolean, default: false }
+  isRefundable: { type: Boolean, default: false },
 }, {
   timestamps: true
 });

@@ -218,26 +218,48 @@ export const deletePackage = async (req: Request, res: Response): Promise<void> 
 
 // Get packages by destination
 export const getPackagesByDestination = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const destinationId = req.params.destinationId;
-    
-    if (!mongoose.Types.ObjectId.isValid(destinationId)) {
-      res.status(400).json({ success: false, error: "Invalid destination ID format" });
-      return;
+    try {
+      const destinationId = req.params.destinationId;
+      const packageType = req.query.type as string;
+      
+      if (!mongoose.Types.ObjectId.isValid(destinationId)) {
+        res.status(400).json({ success: false, error: "Invalid destination ID format" });
+        return;
+      }
+      
+      // Base query object
+      const query: any = { destination: destinationId };
+      
+      // Add type filter if provided in query
+      if (packageType) {
+        // Handle comma-separated types (e.g., type=holiday,honeymoon)
+        const types = packageType.split(',');
+        if (types.length > 1) {
+          query.type = { $in: types };
+        } else {
+          query.type = packageType;
+        }
+      }
+      
+      const packages = await HolidayPackage.find(query)
+        .populate('destination')
+        .populate({
+          path: 'itinerary.activities',
+          model: 'Activity'
+        });
+      
+      res.status(200).json({ 
+        success: true, 
+        count: packages.length,
+        data: packages 
+      });
+    } catch (error: any) {
+      res.status(500).json({ 
+        success: false, 
+        error: error.message || String(error) 
+      });
     }
-    
-    const packages = await HolidayPackage.find({ destination: destinationId })
-    .populate('destination')
-    .populate({
-      path: 'itinerary.activities',
-      model: 'Activity'
-    });
-    
-    res.status(200).json({ success: true, data: packages });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error });
-  }
-};
+  };
 
 // Get packages by type
 export const getPackagesByType = async (req: Request, res: Response): Promise<void> => {
