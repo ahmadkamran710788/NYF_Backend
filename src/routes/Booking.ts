@@ -1,25 +1,18 @@
 import express from "express";
 import {
   createBooking,
-  getBookingsByUser,
-  updateBookingStatus,
+  createBookingFromCart,
+  getBookingByReference,
+  getBookingsByEmail,
+  cancelBooking
 } from "../controllers/BookingController";
 
 const router = express.Router();
 
-// @route   POST /api/bookings
-// @desc    Create a new booking
-// @access  Private
 router.post("/", createBooking);
-
-// @route   GET /api/bookings/user/:userId
-// @desc    Get all bookings for a user
-// @access  Private
-router.get("/user/:userId", getBookingsByUser);
-
-// @route   PATCH /api/bookings/:bookingId/status
-// @desc    Update booking status
-// @access  Private
-router.patch("/:bookingId/status", updateBookingStatus);
+router.post("/from-cart", createBookingFromCart);
+router.get("/reference/:reference", getBookingByReference);
+router.get("/email/:email", getBookingsByEmail);
+router.put("/cancel/:reference", cancelBooking);
 
 export default router;

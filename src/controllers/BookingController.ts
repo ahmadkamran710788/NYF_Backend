@@ -1,134 +1,207 @@
-// src/controllers/bookingController.ts
 import { Request, Response } from "express";
-import { Booking, BookingStatus } from "../models/Booking";
+import { Booking } from "../models/Booking";
 import { Activity } from "../models/Activity";
+import { Cart } from "../models/Cart";
 import mongoose from "mongoose";
+import { v4 as uuidv4 } from "uuid";
 
-export const createBooking = async (
-  req: Request,
-  res: Response
-): Promise<any> => {
+// Create booking directly (without cart)
+export const createBooking = async (req: Request, res: Response): Promise<any> => {
   try {
     const {
       activityId,
-      userId,
-      activityDate,
-      timeSlot,
-      adults,
-      children,
-      contactInfo,
-      specialRequests,
-      paymentMethod,
+      bookingDate,
+      numberOfAdults,
+      numberOfChildren,
+      customerEmail,
+      customerName,
+      customerPhone
     } = req.body;
 
-    // Validate activity exists
-    const activity = await Activity.findById(activityId);
-    if (!activity) {
-      return res.status(404).json({
-        success: false,
-        message: "Activity not found",
-      });
+    if (!mongoose.Types.ObjectId.isValid(activityId)) {
+      return res.status(400).json({ success: false, message: "Invalid activity ID format" });
     }
 
-    // Calculate total amount
-    const totalAmount =
-      adults * activity.discountPrice +
-      (children || 0) * (activity.discountPrice * 0.7); // 30% discount for children
+    // Validate required fields
+    if (!bookingDate || !numberOfAdults || !customerEmail || !customerName || !customerPhone) {
+      return res.status(400).json({ success: false, message: "Missing required booking information" });
+    }
 
-    const booking = new Booking({
-      activity: activityId,
-      user: userId,
-      activityDate: new Date(activityDate),
-      timeSlot,
-      adults,
-      children: children || 0,
-      totalAmount,
-      contactInfo,
-      specialRequests,
-      paymentMethod,
-      paymentStatus: "pending",
+    // Check if activity exists
+    const activity = await Activity.findById(activityId);
+    if (!activity) {
+      return res.status(404).json({ success: false, message: "Activity not found" });
+    }
+
+    // Calculate total price
+    const pricePerAdult = activity.discountPrice || activity.originalPrice;
+    const pricePerChild = (activity.discountPrice || activity.originalPrice) * 0.7; // Assume 30% discount for children
+    const totalPrice = (numberOfAdults * pricePerAdult) + ((numberOfChildren || 0) * pricePerChild);
+
+    // Generate unique booking reference
+    const bookingReference = `BK-${Date.now().toString(36)}-${uuidv4().slice(0, 4)}`.toUpperCase();
+
+    // Create booking
+    const newBooking = new Booking({
+      activityId,
+      bookingDate: new Date(bookingDate),
+      numberOfAdults,
+      numberOfChildren: numberOfChildren || 0,
+      totalPrice,
+      customerEmail,
+      customerName,
+      customerPhone,
+      bookingReference,
+      status: "confirmed" // Or "pending" if you want to implement payment processing
     });
 
-    await booking.save();
+    await newBooking.save();
 
     res.status(201).json({
       success: true,
-      data: booking,
+      data: newBooking,
+      message: "Booking created successfully"
     });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      message: "Error creating booking",
-      error: error.message,
-    });
+  } catch (error) {
+    console.error("Error creating booking:", error);
+    res.status(500).json({ success: false, message: "Server error", error: (error as Error).message });
   }
 };
 
-export const getBookingsByUser = async (req: Request, res: Response) => {
+// Create booking from cart
+export const createBookingFromCart = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { userId } = req.params;
+    const sessionId = req.query.sessionid as string;
+    const { customerEmail, customerName, customerPhone } = req.body;
 
-    const bookings = await Booking.find({ user: userId })
-      .populate("activity")
-      .sort({ bookingDate: -1 });
+    if (!sessionId) {
+      return res.status(400).json({ success: false, message: "Session ID is required" });
+    }
+
+    // Validate customer information
+    if (!customerEmail || !customerName || !customerPhone) {
+      return res.status(400).json({ success: false, message: "Customer information is required" });
+    }
+
+    // Find cart
+    const cart = await Cart.findOne({ sessionId });
+    
+    if (!cart || cart.items.length === 0) {
+      return res.status(404).json({ success: false, message: "Cart not found or empty" });
+    }
+
+    // Create bookings for each cart item
+    const bookings = [];
+    
+    for (const item of cart.items) {
+      // Generate unique booking reference
+      const bookingReference = `BK-${Date.now().toString(36)}-${uuidv4().slice(0, 4)}`.toUpperCase();
+      
+      const newBooking = new Booking({
+        activityId: item.activityId,
+        bookingDate: item.bookingDate,
+        numberOfAdults: item.numberOfAdults,
+        numberOfChildren: item.numberOfChildren,
+        totalPrice: item.totalPrice,
+        customerEmail,
+        customerName,
+        customerPhone,
+        bookingReference,
+        status: "confirmed" // Or "pending" if implementing payment processing
+      });
+      
+      await newBooking.save();
+      bookings.push(newBooking);
+    }
+
+    // Clear cart after successful booking
+    cart.items = [];
+    cart.totalAmount = 0;
+    cart.updatedAt = new Date();
+    await cart.save();
+
+    res.status(201).json({
+      success: true,
+      data: bookings,
+      message: "Bookings created successfully"
+    });
+  } catch (error) {
+    console.error("Error creating bookings from cart:", error);
+    res.status(500).json({ success: false, message: "Server error", error: (error as Error).message });
+  }
+};
+
+// Get booking by reference
+export const getBookingByReference = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { reference } = req.params;
+
+    const booking = await Booking.findOne({ bookingReference: reference })
+      .populate({
+        path: 'activityId',
+        model: 'Activity',
+        select: 'name images duration category'
+      });
+
+    if (!booking) {
+      return res.status(404).json({ success: false, message: "Booking not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: booking
+    });
+  } catch (error) {
+    console.error("Error fetching booking:", error);
+    res.status(500).json({ success: false, message: "Server error", error: (error as Error).message });
+  }
+};
+
+// Get bookings by email
+export const getBookingsByEmail = async (req: Request, res: Response) => {
+  try {
+    const { email } = req.params;
+
+    const bookings = await Booking.find({ customerEmail: email })
+      .populate({
+        path: 'activityId',
+        model: 'Activity',
+        select: 'name images duration category'
+      })
+      .sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,
       count: bookings.length,
-      data: bookings,
+      data: bookings
     });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      message: "Error fetching bookings",
-      error: error.message,
-    });
+  } catch (error) {
+    console.error("Error fetching bookings:", error);
+    res.status(500).json({ success: false, message: "Server error", error: (error as Error).message });
   }
 };
 
-export const updateBookingStatus = async (
-  req: Request,
-  res: Response
-): Promise<any> => {
+// Cancel booking
+export const cancelBooking = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { bookingId } = req.params;
-    const { status, cancellationReason } = req.body;
+    const { reference } = req.params;
 
-    // Validate status
-    if (!Object.values(BookingStatus).includes(status as BookingStatus)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid booking status",
-      });
-    }
-
-    const updateData: any = { status };
-
-    // Add cancellation reason if provided and status is cancelled
-    if (status === BookingStatus.CANCELLED && cancellationReason) {
-      updateData.cancellationReason = cancellationReason;
-    }
-
-    const booking = await Booking.findByIdAndUpdate(bookingId, updateData, {
-      new: true,
-    }).populate("activity");
+    const booking = await Booking.findOne({ bookingReference: reference });
 
     if (!booking) {
-      return res.status(404).json({
-        success: false,
-        message: "Booking not found",
-      });
+      return res.status(404).json({ success: false, message: "Booking not found" });
     }
+
+    booking.status = "cancelled";
+    await booking.save();
 
     res.status(200).json({
       success: true,
       data: booking,
+      message: "Booking cancelled successfully"
     });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      message: "Error updating booking status",
-      error: error.message,
-    });
+  } catch (error) {
+    console.error("Error cancelling booking:", error);
+    res.status(500).json({ success: false, message: "Server error", error: (error as Error).message });
   }
 };
