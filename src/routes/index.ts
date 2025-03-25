@@ -8,6 +8,7 @@ import bookingRoutes from "./Booking";
 import holidayPackageRoutes from "./holidayPackage";
 import activityDetailRoutes from "./ActivityDetail";
 import cartRoutes from "./Cart";
+import enquiryRoutes from "./Enquiry";
 const router = express.Router();
 
 router.use("/continents", continentRoutes);
@@ -19,4 +20,5 @@ router.use("/holidayPackages",holidayPackageRoutes );
 router.use("/activityDetail",activityDetailRoutes );
 router.use("/cart",cartRoutes);
 router.use("/book",bookingRoutes );
+router.use("/enquiry", enquiryRoutes);
 export default router;
