@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { HolidayPackage, IHolidayPackage } from "../models/HolidayPackage";
 import mongoose from "mongoose";
 import { uploadToCloudinary } from "../utils/CloudinaryHelper";
-
+import { City } from "../models/City";
 // Get all holiday packages
 export const getAllPackages = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -260,6 +260,56 @@ export const getPackagesByDestination = async (req: Request, res: Response): Pro
       });
     }
   };
+
+
+export const getPackagesByDestinationName = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const destinationName = req.params.destinationName;
+      const packageType = req.query.type as string;
+      
+      // Find the destination by name first
+      const destination = await City.findOne({ 
+        name: { $regex: new RegExp(destinationName, 'i') } 
+      });
+      
+      if (!destination) {
+        res.status(404).json({ success: false, error: "Destination not found" });
+        return;
+      }
+      
+      // Base query object
+      const query: any = { destination: destination._id };
+      
+      // Add type filter if provided in query
+      if (packageType) {
+        // Handle comma-separated types (e.g., type=holiday,honeymoon)
+        const types = packageType.split(',');
+        if (types.length > 1) {
+          query.type = { $in: types };
+        } else {
+          query.type = packageType;
+        }
+      }
+      
+      const packages = await HolidayPackage.find(query)
+        .populate('destination')
+        .populate({
+          path: 'itinerary.activities',
+          model: 'Activity'
+        });
+      
+      res.status(200).json({
+        success: true,
+        count: packages.length,
+        data: packages
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message || String(error)
+      });
+    }
+};  
 
 // Get packages by type
 export const getPackagesByType = async (req: Request, res: Response): Promise<void> => {
