@@ -26,16 +26,16 @@ const EnquirySchema = new Schema({
     trim: true,
     match: [/^\w+([.-]?\w+)@\w+([.-]?\w+)(\.\w{2,3})+$/, 'Please fill a valid email address']
   },
-  phoneCountryCode: { type: String, required: true, default: '+92' },
+  // phoneCountryCode: { type: String, required: true, default: '+92' },
   phoneNumber: { 
     type: String, 
     required: true,
-    validate: {
-      validator: function(v: string) {
-        return /^[0-9]{10}$/.test(v);
-      },
-      message: (props: { value: string }) => `${props.value} is not a valid phone number!`
-    }
+    // validate: {
+    //   validator: function(v: string) {
+    //     return /^[0-9]{10}$/.test(v);
+    //   },
+    //   message: (props: { value: string }) => `${props.value} is not a valid phone number!`
+    // }
   },
   travelDate: { type: Date, required: true },
   adults: { 
