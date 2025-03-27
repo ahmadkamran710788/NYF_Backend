@@ -10,6 +10,7 @@ import activityDetailRoutes from "./ActivityDetail";
 import cartRoutes from "./Cart";
 import enquiryRoutes from "./Enquiry";
 import globalRoutes from "./global";
+import dealRoute from "./deal";
 const router = express.Router();
 
 router.use("/continents", continentRoutes);
@@ -23,4 +24,5 @@ router.use("/cart",cartRoutes);
 router.use("/book",bookingRoutes );
 router.use("/enquiry", enquiryRoutes);
 router.use("/global-search", globalRoutes);
+router.use("/deal", dealRoute);
 export default router;
