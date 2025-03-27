@@ -1,36 +1,97 @@
 
+// import mongoose, { Schema, Document } from "mongoose";
+
+// export interface IActivityDetail extends Document {
+//   activityId: mongoose.Types.ObjectId;
+  
+//   itinerary: string[];
+//   policy: {
+//     cancellation: string;
+//     ageRestriction: string;
+//   };
+//   additionalInfo: string[];
+//   faq: Array<{ question: string; answer: string }>;
+// }
+
+// const ActivityDetailSchema = new Schema({
+//   activityId: { 
+//     type: Schema.Types.ObjectId, 
+//     ref: "Activity", 
+//     required: true,
+//     unique: true 
+//   },
+  
+//   itinerary: [{ type: String }],
+//   policy: {
+//     cancellation: { type: String },
+//     ageRestriction: { type: String }
+//   },
+//   additionalInfo: [{ type: String }],
+//   faq: [{
+//     question: { type: String },
+//     answer: { type: String }
+//   }]
+// });
+
+// export const ActivityDetail = mongoose.model<IActivityDetail>("ActivityDetail", ActivityDetailSchema);
+
+
+
+
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface IActivityDetail extends Document {
   activityId: mongoose.Types.ObjectId;
-  
-  itinerary: string[];
-  policy: {
-    cancellation: string;
-    ageRestriction: string;
+  highlights: string[];
+  inclusions: string[];
+  childAdultPolicy: {
+    freeHeight: number;
+    maxAgeForChildTicket: number;
   };
-  additionalInfo: string[];
-  faq: Array<{ question: string; answer: string }>;
+  exclusions: string[];
+  openingHours: {
+    weekdays: string;
+    weekends: string;
+    closedDays: string;
+    specialEventDates: string[];
+  };
+  thingsToKnow: string[];
+  location: {
+    address: string;
+    directionLink: string;
+  };
+  howToGetThere: string[];
+  howToRedeem: string[];
+  cancellationPolicy: string[];
 }
 
 const ActivityDetailSchema = new Schema({
   activityId: { 
     type: Schema.Types.ObjectId, 
     ref: "Activity", 
-    required: true,
-    unique: true 
+    required: true
   },
-  
-  itinerary: [{ type: String }],
-  policy: {
-    cancellation: { type: String },
-    ageRestriction: { type: String }
+  highlights: [{ type: String }],
+  inclusions: [{ type: String }],
+  childAdultPolicy: {
+    freeHeight: { type: Number },
+    maxAgeForChildTicket: { type: Number }
   },
-  additionalInfo: [{ type: String }],
-  faq: [{
-    question: { type: String },
-    answer: { type: String }
-  }]
+  exclusions: [{ type: String }],
+  openingHours: {
+    weekdays: { type: String },
+    weekends: { type: String },
+    closedDays: { type: String },
+    specialEventDates: [{ type: String }]
+  },
+  thingsToKnow: [{ type: String }],
+  location: {
+    address: { type: String },
+    directionLink: { type: String }
+  },
+  howToGetThere: [{ type: String }],
+  howToRedeem: [{ type: String }],
+  cancellationPolicy: [{ type: String }]
 });
 
 export const ActivityDetail = mongoose.model<IActivityDetail>("ActivityDetail", ActivityDetailSchema);
