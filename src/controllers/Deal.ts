@@ -364,29 +364,3 @@ export const getBestDealPricing = async (req: Request, res: Response): Promise<a
     handleError(res, error, 'Error retrieving deal pricing');
   }
 };
-
-// Example Router Setup
-/*
-import express from 'express';
-import { 
-  createDeal, 
-  getDealsByActivity, 
-  getDealById, 
-  updateDeal, 
-  deleteDeal,
-  getDealsPricingByActivityAndDate,
-  getBestDealPricing
-} from '../controllers/deal.controller';
-
-const router = express.Router();
-
-router.post('/deals', createDeal);
-router.get('/deals/activity/:activityId', getDealsByActivity);
-router.get('/deals/:dealId', getDealById);
-router.put('/deals/:dealId', updateDeal);
-router.delete('/deals/:dealId', deleteDeal);
-router.get('/deals/activity/:activityId/pricing', getDealsPricingByActivityAndDate);
-router.get('/deals/:dealId/pricing', getBestDealPricing);
-
-export default router;
-*/

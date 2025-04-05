@@ -37,6 +37,79 @@ export const getPackagePrice = async (req: Request, res: Response): Promise<any>
 };
 
 // Create a new enquiry
+// export const createEnquiry = async (req: Request, res: Response): Promise<any> => {
+//   try {
+//     const {
+//       firstName,
+//       lastName,
+//       email,
+//       // phoneCountryCode,
+//       phoneNumber,
+//       travelDate,
+//       adults,
+//       children,
+//       childAge,
+//       budget,
+//       message,
+//       packageId
+//     } = req.body;
+
+//     // Validate package
+//     if (!mongoose.Types.ObjectId.isValid(packageId)) {
+//       return res.status(400).json({ message: 'Invalid package ID' });
+//     }
+
+//     const packageExists = await HolidayPackage.findById(packageId);
+//     if (!packageExists) {
+//       return res.status(400).json({ 
+//         message: 'Invalid package selected' 
+//       });
+//     }
+
+//     // Determine budget (use package discounted price if not provided)
+//     const finalBudget = budget || packageExists.discountPrice;
+
+//     // Create new enquiry
+//     const newEnquiry = new Enquiry({
+//       firstName,
+//       lastName,
+//       email,
+//       // phoneCountryCode,
+//       phoneNumber,
+//       travelDate: new Date(travelDate),
+//       adults,
+//       children,
+//       childAge,
+//       budget: finalBudget,
+//       message,
+//       packageId
+//     });
+
+//     // Save enquiry
+//     const savedEnquiry = await newEnquiry.save();
+
+//     res.status(201).json({
+//       message: 'Enquiry submitted successfully',
+//       enquiry: savedEnquiry
+//     });
+//   } catch (error: any) {
+//     // Handle validation errors
+//     if (error.name === 'ValidationError') {
+//       const errors = Object.values(error.errors).map((err: any) => err.message);
+//       return res.status(400).json({ 
+//         message: 'Validation Error', 
+//         errors 
+//       });
+//     }
+
+//     res.status(500).json({ 
+//       message: 'Error creating enquiry', 
+//       error: error.message 
+//     });
+//   }
+// };
+
+
 export const createEnquiry = async (req: Request, res: Response): Promise<any> => {
   try {
     const {
@@ -48,27 +121,53 @@ export const createEnquiry = async (req: Request, res: Response): Promise<any> =
       travelDate,
       adults,
       children,
-      childAge,
+      childAges, // Changed from childAge to childAges (array)
       budget,
       message,
       packageId
     } = req.body;
-
+    
     // Validate package
     if (!mongoose.Types.ObjectId.isValid(packageId)) {
       return res.status(400).json({ message: 'Invalid package ID' });
     }
-
+    
     const packageExists = await HolidayPackage.findById(packageId);
     if (!packageExists) {
-      return res.status(400).json({ 
-        message: 'Invalid package selected' 
+      return res.status(400).json({
+        message: 'Invalid package selected'
       });
     }
-
+    
     // Determine budget (use package discounted price if not provided)
     const finalBudget = budget || packageExists.discountPrice;
-
+    
+    // Validate childAges if children are present
+    if (children > 0) {
+      // Check if childAges is provided and is an array
+      if (!childAges || !Array.isArray(childAges)) {
+        return res.status(400).json({
+          message: 'Child ages must be provided as an array when children are present'
+        });
+      }
+      
+      // Check if the number of ages matches the number of children
+      if (childAges.length !== children) {
+        return res.status(400).json({
+          message: 'Number of child ages must match the number of children'
+        });
+      }
+      
+      // Validate each age
+      for (const age of childAges) {
+        if (typeof age !== 'number' || age < 0 || age > 17) {
+          return res.status(400).json({
+            message: 'Each child age must be a number between 0 and 17'
+          });
+        }
+      }
+    }
+    
     // Create new enquiry
     const newEnquiry = new Enquiry({
       firstName,
@@ -79,15 +178,15 @@ export const createEnquiry = async (req: Request, res: Response): Promise<any> =
       travelDate: new Date(travelDate),
       adults,
       children,
-      childAge,
+      childAges: children > 0 ? childAges : undefined, // Only include if children present
       budget: finalBudget,
       message,
       packageId
     });
-
+    
     // Save enquiry
     const savedEnquiry = await newEnquiry.save();
-
+    
     res.status(201).json({
       message: 'Enquiry submitted successfully',
       enquiry: savedEnquiry
@@ -96,19 +195,18 @@ export const createEnquiry = async (req: Request, res: Response): Promise<any> =
     // Handle validation errors
     if (error.name === 'ValidationError') {
       const errors = Object.values(error.errors).map((err: any) => err.message);
-      return res.status(400).json({ 
-        message: 'Validation Error', 
-        errors 
+      return res.status(400).json({
+        message: 'Validation Error',
+        errors
       });
     }
-
-    res.status(500).json({ 
-      message: 'Error creating enquiry', 
-      error: error.message 
+    
+    res.status(500).json({
+      message: 'Error creating enquiry',
+      error: error.message
     });
   }
 };
-
 // Get all enquiries
 export const getAllEnquiries = async (req: Request, res: Response) => {
   try {

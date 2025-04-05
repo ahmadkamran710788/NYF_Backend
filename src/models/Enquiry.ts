@@ -51,16 +51,23 @@ const EnquirySchema = new Schema({
     min: [0, 'Children cannot be negative'],
     max: [10, 'Maximum 10 children allowed']
   },
-  childAge: { 
-    type: Number,
+  childAges: { 
+    type: [Number], // Changed to array of numbers
     validate: {
-        validator: function (this: IEnquiry) {
-          return this.children > 0 ? this.childAge !== undefined : true;
-        },
-        message: 'Child age is required if children count is greater than 0',
+      validator: function(this: IEnquiry, childAges: number[]) {
+        // If there are children, childAges must be an array with the same length
+        if (this.children > 0) {
+          if (!childAges || !Array.isArray(childAges) || childAges.length !== this.children) {
+            return false;
+          }
+          // Each age must be between 0 and 17
+          return childAges.every(age => age >= 0 && age <= 17);
+        }
+        // If no children, childAges should be undefined or empty
+        return !childAges || childAges.length === 0;
       },
-    min: [0, 'Child age cannot be negative'],
-    max: [17, 'Maximum child age is 17']
+      message: 'Child ages must be provided for each child and each age must be between 0 and 17'
+    }
   },
   budget: { type: Number },
   message: { type: String },
