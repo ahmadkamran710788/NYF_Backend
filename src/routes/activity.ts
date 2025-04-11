@@ -5,6 +5,7 @@ import {
   getActivitiesByContinent,
   addActivity,
   getAllCategory,
+  
 } from "../controllers/ActivityController";
 import upload from "../middleware/uploadMiddleware";
 const router = express.Router();

@@ -212,6 +212,7 @@ import mongoose from 'mongoose';
 import { Booking, BookingStatus, IBooking } from '../models/Booking';
 import { Deal } from '../models/Deal';
 import { Activity } from '../models/Activity';
+import { Cart, ICartItem } from '../models/Cart';
 
 // Helper function for error handling
 const handleError = (res: Response, error: unknown, message: string = 'An error occurred') => {
@@ -525,6 +526,224 @@ export const getBookingsByEmail = async (req: Request, res: Response): Promise<a
 };
 
 
+export const getAllBookingsWithPagination = async (req: Request, res: Response): Promise<any> => {
+  try {
+    console.log("booking" )
+    // Extract query parameters
+    const { 
+      page = 1, 
+      limit = 10, 
+      status, 
+      startDate, 
+      endDate, 
+      sortBy = 'createdAt', 
+      sortOrder = 'desc',
+      search
+    } = req.query;
+
+    // Parse pagination params
+    const pageNumber = parseInt(page as string, 10);
+    const limitNumber = parseInt(limit as string, 10);
+    
+    // Validate pagination params
+    if (isNaN(pageNumber) || isNaN(limitNumber) || pageNumber < 1 || limitNumber < 1) {
+      return res.status(400).json({ message: 'Invalid pagination parameters' });
+    }
+
+    // Calculate skip value for pagination
+    const skip = (pageNumber - 1) * limitNumber;
+
+    // Build filter object
+    const filter: any = {};
+
+    // Add status filter if provided and valid
+    if (status && Object.values(BookingStatus).includes(status as BookingStatus)) {
+      filter.status = status;
+    }
+
+    // Add date range filter if provided
+    if (startDate || endDate) {
+      filter.bookingDate = {};
+      
+      if (startDate) {
+        const parsedStartDate = new Date(startDate as string);
+        if (!isNaN(parsedStartDate.getTime())) {
+          filter.bookingDate.$gte = parsedStartDate;
+        }
+      }
+      
+      if (endDate) {
+        const parsedEndDate = new Date(endDate as string);
+        if (!isNaN(parsedEndDate.getTime())) {
+          filter.bookingDate.$lte = parsedEndDate;
+        }
+      }
+    }
+
+    // Add search functionality for booking reference, email, and phone number
+    if (search && typeof search === 'string') {
+      const searchRegex = new RegExp(search, 'i');
+      filter.$or = [
+        { bookingReference: searchRegex },
+        { email: searchRegex },
+        { phoneNumber: searchRegex }
+      ];
+    }
+
+    // Validate sort parameters
+    const allowedSortFields = ['createdAt', 'bookingDate', 'totalPrice', 'status'];
+    const sortField = allowedSortFields.includes(sortBy as string) ? sortBy : 'createdAt';
+    const sortDirection = (sortOrder as string).toLowerCase() === 'asc' ? 1 : -1;
+
+    // Build sort object
+    const sort: any = {};
+    sort[sortField as string] = sortDirection;
+
+    // Execute count for total documents matching filter
+    const totalCount = await Booking.countDocuments(filter);
+
+    // Execute query with pagination, populate, and sort
+    const bookings = await Booking.find(filter)
+      .sort(sort)
+      .skip(skip)
+      .limit(limitNumber)
+      .populate('activity', 'name category')
+      .populate('deal', 'title');
+
+    // Calculate pagination metadata
+    const totalPages = Math.ceil(totalCount / limitNumber);
+    const hasNext = pageNumber < totalPages;
+    const hasPrevious = pageNumber > 1;
+
+    res.status(200).json({
+      message: 'Bookings retrieved successfully',
+      data: {
+        bookings,
+        pagination: {
+          total: totalCount,
+          page: pageNumber,
+          limit: limitNumber,
+          totalPages,
+          hasNext,
+          hasPrevious,
+          nextPage: hasNext ? pageNumber + 1 : null,
+          previousPage: hasPrevious ? pageNumber - 1 : null
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error retrieving bookings:', error);
+    res.status(500).json({ 
+      message: 'Error retrieving bookings', 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    });
+  }
+};
+
+
+
+/**
+ * Generate unique booking reference
+ * @returns Unique booking reference string
+ */
+
+/**
+ * Checkout cart and create bookings
+ * @param req Express request object
+ * @param res Express response object
+ */
+export const checkoutCart = async (req: Request, res: Response) : Promise<any>=> {
+  const session = await mongoose.startSession();
+  
+  try {
+    // Start transaction
+    session.startTransaction();
+    
+    const { cartId } = req.params;
+    const { email, phoneNumber } = req.body;
+    
+    // Validate required fields
+    if (!email || !phoneNumber) {
+      return res.status(400).json({ 
+        message: 'Email and phone number are required' 
+      });
+    }
+    
+    // Validate email format
+    const emailRegex = /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ 
+        message: 'Invalid email format' 
+      });
+    }
+    
+    // Validate phone number
+    const phoneRegex = /^\+?[1-9]\d{1,14}$/;
+    if (!phoneRegex.test(phoneNumber)) {
+      return res.status(400).json({ 
+        message: 'Invalid phone number format' 
+      });
+    }
+    
+    // Find cart
+    const cart = await Cart.findOne({ cartId }).session(session);
+    
+    if (!cart) {
+      return res.status(404).json({ 
+        message: 'Cart not found' 
+      });
+    }
+    
+    // Check if cart is empty
+    if (cart.items.length === 0) {
+      return res.status(400).json({ 
+        message: 'Cart is empty' 
+      });
+    }
+    
+    // Create bookings for each cart item
+    const bookings = [];
+    
+    for (const item of cart.items) {
+      const booking = new Booking({
+        activity: item.activity,
+        deal: item.deal,
+        bookingDate: item.bookingDate,
+        numberOfAdults: item.numberOfAdults,
+        numberOfChildren: item.numberOfChildren,
+        totalPrice: item.subtotal,
+        email,
+        phoneNumber,
+        bookingReference: generateBookingReference(),
+        status: BookingStatus.PENDING
+      });
+      
+      await booking.save({ session });
+      bookings.push(booking);
+    }
+    
+    // Clear the cart
+    cart.items = [];
+    await cart.save({ session });
+    
+    // Commit transaction
+    await session.commitTransaction();
+    
+    res.status(201).json({
+      message: 'Checkout successful',
+      bookings,
+      totalBookings: bookings.length
+    });
+    
+  } catch (error) {
+    // Abort transaction on error
+    await session.abortTransaction();
+    handleError(res, error, 'Error during checkout');
+  } finally {
+    // End session
+    session.endSession();
+  }
+};
 
 
 
