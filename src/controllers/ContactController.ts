@@ -6,14 +6,14 @@ import nodemailer from 'nodemailer';
 // Function to submit contact form
 export const submitContactForm = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { firstName, lastName, email, phone, message } = req.body;
+    const { firstName, lastName, email, phoneNumber, message } = req.body;
 
     // Create new contact record
     const contact: IContact = await Contact.create({
       firstName,
       lastName,
       email,
-      phone,
+      phone:phoneNumber,
       message
     });
 
