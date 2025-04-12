@@ -6,12 +6,15 @@ import {
   updateDeal, 
   deleteDeal,
   getDealsPricingByActivityAndDate,
-  getBestDealPricing
+  getBestDealPricing,
+  getAllDeals
 } from '../controllers/Deal';
+import upload from "../middleware/uploadMiddleware";
 
 const router = express.Router();
 
-router.post('/', createDeal);
+router.post('/',upload.single("image"),createDeal);
+router.get('/', getAllDeals);  
 router.get('/activity/:activityId', getDealsByActivity);
 router.get('/:dealId', getDealById);
 router.put('/:dealId', updateDeal);

@@ -14,6 +14,7 @@ export interface IDealPricing {
     includes: string[];
     highlights: string[];
     restrictions?: string[];
+    image:string;
   }
 
 
@@ -26,6 +27,10 @@ export interface IDealPricing {
     title: { 
       type: String, 
       required: true 
+    },
+    image: { 
+      type: String, 
+      required: false 
     },
     description: { 
       type: String, 

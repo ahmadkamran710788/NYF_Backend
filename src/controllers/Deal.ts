@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { Deal, IDeal } from '../models/Deal';
 import { Activity } from '../models/Activity';
+import { uploadToCloudinary } from "../utils/CloudinaryHelper";
 
 // Helper function for error handling
 const handleError = (res: Response, error: unknown, message: string = 'An error occurred') => {
@@ -38,16 +39,35 @@ export const createDeal = async (req: Request, res: Response): Promise<any> => {
       return res.status(404).json({ message: 'Activity not found' });
     }
 
-    // Create new deal
+    // Create new deal object (without saving it yet)
     const newDeal = new Deal({
       activity,
       title,
       description,
-      pricing,
-      includes,
-      highlights,
-      restrictions
+      pricing: JSON.parse(pricing),
+      includes: JSON.parse(includes),
+      highlights: JSON.parse(highlights),
+      restrictions: restrictions ? JSON.parse(restrictions) : []
     });
+
+    // Handle image upload if a file was provided
+    if (req.file) {
+      try {
+        // Upload the file to Cloudinary
+        const uploadResult = await uploadToCloudinary(
+          req.file.path,
+          "deals"  // folder name in Cloudinary
+        );
+        
+        // Add the image URL to the deal
+        newDeal.image = uploadResult.url;
+      } catch (error) {
+        return res.status(400).json({ 
+          message: 'Error uploading image', 
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+    }
 
     // Save the deal
     await newDeal.save();
@@ -60,6 +80,7 @@ export const createDeal = async (req: Request, res: Response): Promise<any> => {
     handleError(res, error, 'Error creating deal');
   }
 };
+
 
 /**
  * Get deals by activity
@@ -114,6 +135,27 @@ export const getDealById = async (req: Request, res: Response): Promise<any> => 
     res.status(200).json({
       message: 'Deal retrieved successfully',
       deal
+    });
+  } catch (error) {
+    handleError(res, error, 'Error retrieving deal');
+  }
+};
+
+
+
+export const getAllDeals = async (req: Request, res: Response): Promise<any> => {
+  try {
+    
+
+    // Find deal and populate activity details
+    const deals = await Deal.find()
+      .populate('activity', 'name category description images');
+
+   
+
+    res.status(200).json({
+      message: 'Deals retrieved successfully',
+      deals:deals
     });
   } catch (error) {
     handleError(res, error, 'Error retrieving deal');
