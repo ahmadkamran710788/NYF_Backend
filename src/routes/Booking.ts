@@ -26,13 +26,15 @@ import {
   updateBookingStatus,
   cancelBooking,
   getBookingsByEmail,
-  getAllBookingsWithPagination
+  getAllBookingsWithPagination,
+  getAllBookings
 } from '../controllers/BookingController';
 
 const router = express.Router();
 
 router.post('/', createBooking);
 router.get('/all/', getAllBookingsWithPagination);
+router.get('/all-bookings', getAllBookings);
 router.get('/activity/:activityId', getBookingsByActivity);
 router.get('/:bookingId', getBookingById);
 router.patch('/:bookingId/status', updateBookingStatus);
