@@ -12,6 +12,7 @@ import enquiryRoutes from "./Enquiry";
 import globalRoutes from "./global";
 import dealRoute from "./deal";
 import contactRoute from "./Contact";
+import AdminRoutes from "./Admin";
 const router = express.Router();
 
 router.use("/continents", continentRoutes);
@@ -26,5 +27,6 @@ router.use("/book",bookingRoutes );
 router.use("/enquiry", enquiryRoutes);
 router.use("/global-search", globalRoutes);
 router.use("/deal", dealRoute);
-router.use("/contact", contactRoute);   
+router.use("/contact", contactRoute); 
+router.use("/admin", AdminRoutes);  
 export default router;
