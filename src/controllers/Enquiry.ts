@@ -236,6 +236,26 @@ export const getAllEnquiries = async (req: Request, res: Response) => {
   }
 };
 
+export const getAllEnquirieswithpagination = async (req: Request, res: Response) => {
+  try {
+    const enquiries = await Enquiry.find()
+      .sort({ createdAt: -1 })
+      .populate('packageId', 'name destination');
+
+    const total = enquiries.length;
+
+    res.status(200).json({
+      enquiries,
+      totalEnquiries: total
+    });
+  } catch (error: any) {
+    res.status(500).json({ 
+      message: 'Error fetching enquiries', 
+      error: error.message 
+    });
+  }
+};
+
 // Update enquiry status
 export const updateEnquiryStatus = async (req: Request, res: Response) : Promise<any>=> {
   try {

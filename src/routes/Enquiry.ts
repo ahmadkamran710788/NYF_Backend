@@ -3,7 +3,8 @@ import {
   createEnquiry, 
   getAllEnquiries, 
   updateEnquiryStatus, 
-  getPackagePrice 
+  getPackagePrice,
+  getAllEnquirieswithpagination 
 } from '../controllers/Enquiry';
 
 
@@ -17,6 +18,7 @@ router.get('/package-price/:packageId', getPackagePrice);
 
 // Admin routes (protected)
 router.get('/', getAllEnquiries);
+router.get('/all-enquiry/', getAllEnquirieswithpagination);
 router.patch('/:id/status', updateEnquiryStatus);
 
 export default router;
