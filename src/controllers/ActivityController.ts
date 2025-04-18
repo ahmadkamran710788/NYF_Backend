@@ -219,6 +219,137 @@ export const getAllActivities = async (
     });
   }
 };
+
+export const getActivitiesWithoutPagination = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    // Basic filter from query parameters
+    const filter = buildActivityFilter(req.query);
+    let { countryName, cityName, continentName } = req.query;
+
+    // Process comma-separated values for location parameters
+    const countries = countryName ? String(countryName).split(',').filter(Boolean) : [];
+    const cities = cityName ? String(cityName).split(',').filter(Boolean) : [];
+    const continents = continentName ? String(continentName).split(',').filter(Boolean) : [];
+
+    // Location-based filtering
+    if (continents.length > 0 || countries.length > 0 || cities.length > 0) {
+      let cityIds: any[] = [];
+
+      // Handle continent-based filtering
+      if (continents.length > 0) {
+        const regexPatterns = continents.map(
+          name => new RegExp(String(name), "i")
+        );
+        
+        const foundContinents = await Continent.find({
+          name: { $in: regexPatterns },
+        });
+
+        if (foundContinents.length > 0) {
+          const continentIds = foundContinents.map((continent) => continent._id);
+
+          const foundCountries = await Country.find({
+            continent: { $in: continentIds },
+          });
+
+          if (foundCountries.length > 0) {
+            const countryIds = foundCountries.map((country) => country._id);
+            
+            const citiesFromContinents = await City.find({
+              country: { $in: countryIds },
+            });
+            
+            // Add found city IDs to our collection
+            cityIds = [...cityIds, ...citiesFromContinents.map(city => city._id)];
+          }
+        }
+      }
+
+      // Handle country-based filtering
+      if (countries.length > 0) {
+        const regexPatterns = countries.map(
+          name => new RegExp(String(name), "i")
+        );
+        
+        const foundCountries = await Country.find({
+          name: { $in: regexPatterns },
+        });
+
+        if (foundCountries.length > 0) {
+          const countryIds = foundCountries.map((country) => country._id);
+          
+          const citiesFromCountries = await City.find({
+            country: { $in: countryIds },
+          });
+          
+          // Add found city IDs to our collection
+          cityIds = [...cityIds, ...citiesFromCountries.map(city => city._id)];
+        }
+      }
+
+      // Handle city-based filtering
+      if (cities.length > 0) {
+        const regexPatterns = cities.map(
+          name => new RegExp(String(name), "i")
+        );
+        
+        const citiesDirectMatch = await City.find({
+          name: { $in: regexPatterns },
+        });
+        
+        // Add found city IDs to our collection
+        cityIds = [...cityIds, ...citiesDirectMatch.map(city => city._id)];
+      }
+
+      // Remove duplicates from cityIds
+      cityIds = [...new Set(cityIds)];
+
+      // If we have matching cities, add to filter
+      if (cityIds.length > 0) {
+        filter.city = { $in: cityIds };
+      } else {
+        // No matching cities found, return empty result
+        return res.status(200).json({
+          success: true,
+          count: 0,
+          data: [],
+        });
+      }
+    }
+
+    // Get all activities with populated data without pagination
+    const activities = await Activity.find(filter)
+      .populate({
+        path: "city",
+        select: "name country",
+        populate: {
+          path: "country",
+          select: "name continent",
+          populate: {
+            path: "continent",
+            select: "name",
+          },
+        },
+      })
+      .lean(); // Using lean() for better performance on read-only data
+
+    return res.status(200).json({
+      success: true,
+      count: activities.length,
+      data: activities,
+    });
+  } catch (error: any) {
+    console.error("Error in getActivitiesWithoutPagination:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching activities",
+      error: error.message,
+    });
+  }
+};
 // Get activities by city with filtering
 export const getActivitiesByCity = async (req: Request, res: Response) => {
   try {
