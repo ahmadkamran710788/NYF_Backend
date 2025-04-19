@@ -7,6 +7,7 @@ import { HolidayPackage, IHolidayPackage } from "../models/HolidayPackage";
 import { ActivityDetail } from "../models/ActivityDetails";
 import { Activity } from "../models/Activity";
 import mongoose from "mongoose";
+import { Deal, IDeal } from '../models/Deal';
 // Define interface to extend Express Request with file property
 
 // Get all cities across countries
@@ -92,7 +93,6 @@ export const getCityById = async (req: Request, res: Response): Promise<any> => 
 };
 
 export const deleteCityById = async (req: Request, res: Response): Promise<any> => {
-  // Use a session to ensure transaction consistency
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -106,8 +106,9 @@ export const deleteCityById = async (req: Request, res: Response): Promise<any> 
       });
     }
 
-    // First check if the city exists
+    // Find the city first to check if it exists
     const city = await City.findById(id).session(session);
+    
     if (!city) {
       await session.abortTransaction();
       session.endSession();
@@ -117,23 +118,25 @@ export const deleteCityById = async (req: Request, res: Response): Promise<any> 
       });
     }
 
-    // Find all activities related to this city
+    // Find all activities in this city
     const activities = await Activity.find({ city: id }).session(session);
     const activityIds = activities.map(activity => activity._id);
-
+    
     // Delete all activity details related to these activities
     await ActivityDetail.deleteMany({ activityId: { $in: activityIds } }).session(session);
     
-    // Delete all activities
+    // Delete all deals related to these activities
+    await Deal.deleteMany({ activity: { $in: activityIds } }).session(session);
+    
+    // Delete all activities in this city
     await Activity.deleteMany({ city: id }).session(session);
     
-    // Delete all holiday packages that have this city as a destination
+    // Delete all holiday packages with this city as destination
     await HolidayPackage.deleteMany({ destination: id }).session(session);
     
-    // Finally delete the city
+    // Finally delete the city itself
     const deletedCity = await City.findByIdAndDelete(id).session(session);
-
-    // Commit the transaction
+    
     await session.commitTransaction();
     session.endSession();
     
@@ -142,19 +145,21 @@ export const deleteCityById = async (req: Request, res: Response): Promise<any> 
       message: "City and all related data successfully deleted",
       data: {
         city: deletedCity,
-        deletedActivitiesCount: activities.length,
-        deletedPackagesCount: await HolidayPackage.countDocuments({ destination: id }),
-        deletedActivityDetailsCount: await ActivityDetail.countDocuments({ activityId: { $in: activityIds } })
-      },
+        deletedCounts: {
+          activities: activityIds.length,
+          activityDetails: await ActivityDetail.countDocuments({ activityId: { $in: activityIds } }),
+          deals: await Deal.countDocuments({ activity: { $in: activityIds } }),
+          holidayPackages: await HolidayPackage.countDocuments({ destination: id })
+        }
+      }
     });
   } catch (error: any) {
-    // If an error occurs, abort the transaction
     await session.abortTransaction();
     session.endSession();
     
     res.status(500).json({
       success: false,
-      message: "Error deleting city and related data",
+      message: "Error deleting city",
       error: error.message,
     });
   }

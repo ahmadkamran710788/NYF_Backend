@@ -1,6 +1,6 @@
 // src/routes/countryRoutes.ts
 import express from "express";
-import { getAllCountries, addCountry } from "../controllers/CountryController";
+import { getAllCountries, addCountry,getCountryById, deleteCountryById } from "../controllers/CountryController";
 import { getActivitiesByCountry } from "../controllers/ActivityController";
 import upload from "../middleware/uploadMiddleware";
 const router = express.Router();
@@ -9,6 +9,8 @@ const router = express.Router();
 // @desc    Get all countries
 // @access  Public
 router.get("/", getAllCountries);
+router.get("/:id", getCountryById);
+router.delete("/:id", deleteCountryById);
 
 // @route   POST /api/countries
 // @desc    Add a new country

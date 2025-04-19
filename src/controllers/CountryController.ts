@@ -1,6 +1,11 @@
 import { Request, Response } from "express";
 import { Country } from "../models/Country";
 import { Continent } from "../models/Continent";
+import { HolidayPackage, IHolidayPackage } from "../models/HolidayPackage";
+import { ActivityDetail } from "../models/ActivityDetails";
+import { Activity } from "../models/Activity";
+import { Deal, IDeal } from '../models/Deal';
+import { City } from "../models/City";
 import mongoose from "mongoose";
 import { uploadToCloudinary } from "../utils/CloudinaryHelper";
 // Get all countries across continents
@@ -115,6 +120,139 @@ export const addCountry = async (
     res.status(500).json({
       success: false,
       message: "Error adding country",
+      error: error.message,
+    });
+  }
+};
+// Get country by ID
+export const getCountryById = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params;
+    
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Country ID is required",
+      });
+    }
+
+    const country = await Country.findById(id).populate({
+      path: "continent",
+      select: "name"
+    }).populate({
+      path: "cities",
+      select: "name"
+    });
+    
+    if (!country) {
+      return res.status(404).json({
+        success: false,
+        message: "Country not found",
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      data: country,
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: "Error fetching country",
+      error: error.message,
+    });
+  }
+};
+
+// Delete country by ID with cascade deletion
+export const deleteCountryById = async (req: Request, res: Response): Promise<any> => {
+  // Use a session to ensure transaction consistency
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { id } = req.params;
+    
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Country ID is required",
+      });
+    }
+
+    // First check if the country exists
+    const country = await Country.findById(id).session(session);
+    if (!country) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({
+        success: false,
+        message: "Country not found",
+      });
+    }
+
+    // Get all cities in this country
+    const cities = await City.find({ country: id }).session(session);
+    const cityIds = cities.map(city => city._id);
+
+    // For each city, find all activities
+    const activities = await Activity.find({ city: { $in: cityIds } }).session(session);
+    const activityIds = activities.map(activity => activity._id);
+
+    // Delete all deals related to these activities
+    const deletedDeals = await Deal.deleteMany({ activity: { $in: activityIds } }).session(session);
+
+    // Delete all activity details related to these activities
+    const deletedActivityDetails = await ActivityDetail.deleteMany({ 
+      activityId: { $in: activityIds } 
+    }).session(session);
+    
+    // Delete all activities
+    const deletedActivities = await Activity.deleteMany({ 
+      city: { $in: cityIds } 
+    }).session(session);
+    
+    // Delete all holiday packages related to these cities
+    const deletedPackages = await HolidayPackage.deleteMany({ 
+      destination: { $in: cityIds } 
+    }).session(session);
+    
+    // Delete all cities in this country
+    const deletedCities = await City.deleteMany({ country: id }).session(session);
+    
+    // Remove the country reference from the continent
+    await Continent.updateOne(
+      { _id: country.continent },
+      { $pull: { countries: id } }
+    ).session(session);
+
+    // Finally delete the country
+    const deletedCountry = await Country.findByIdAndDelete(id).session(session);
+
+    // Commit the transaction
+    await session.commitTransaction();
+    session.endSession();
+    
+    res.status(200).json({
+      success: true,
+      message: "Country and all related data successfully deleted",
+      data: {
+        country: deletedCountry,
+        deletedCitiesCount: deletedCities.deletedCount,
+        deletedActivitiesCount: deletedActivities.deletedCount,
+        deletedActivityDetailsCount: deletedActivityDetails.deletedCount,
+        deletedPackagesCount: deletedPackages.deletedCount,
+        deletedDealsCount: deletedDeals.deletedCount
+      },
+    });
+  } catch (error: any) {
+    // If an error occurs, abort the transaction
+    await session.abortTransaction();
+    session.endSession();
+    
+    res.status(500).json({
+      success: false,
+      message: "Error deleting country and related data",
       error: error.message,
     });
   }
