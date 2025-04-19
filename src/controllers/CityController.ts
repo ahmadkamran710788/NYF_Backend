@@ -3,7 +3,10 @@ import { Request, Response } from "express";
 import { City } from "../models/City";
 import { Country } from "../models/Country";
 import { uploadToCloudinary } from "../utils/CloudinaryHelper";
-
+import { HolidayPackage, IHolidayPackage } from "../models/HolidayPackage";
+import { ActivityDetail } from "../models/ActivityDetails";
+import { Activity } from "../models/Activity";
+import mongoose from "mongoose";
 // Define interface to extend Express Request with file property
 
 // Get all cities across countries
@@ -89,6 +92,10 @@ export const getCityById = async (req: Request, res: Response): Promise<any> => 
 };
 
 export const deleteCityById = async (req: Request, res: Response): Promise<any> => {
+  // Use a session to ensure transaction consistency
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const { id } = req.params;
     
@@ -99,24 +106,55 @@ export const deleteCityById = async (req: Request, res: Response): Promise<any> 
       });
     }
 
-    const deletedCity = await City.findByIdAndDelete(id);
-    
-    if (!deletedCity) {
+    // First check if the city exists
+    const city = await City.findById(id).session(session);
+    if (!city) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(404).json({
         success: false,
         message: "City not found",
       });
     }
+
+    // Find all activities related to this city
+    const activities = await Activity.find({ city: id }).session(session);
+    const activityIds = activities.map(activity => activity._id);
+
+    // Delete all activity details related to these activities
+    await ActivityDetail.deleteMany({ activityId: { $in: activityIds } }).session(session);
+    
+    // Delete all activities
+    await Activity.deleteMany({ city: id }).session(session);
+    
+    // Delete all holiday packages that have this city as a destination
+    await HolidayPackage.deleteMany({ destination: id }).session(session);
+    
+    // Finally delete the city
+    const deletedCity = await City.findByIdAndDelete(id).session(session);
+
+    // Commit the transaction
+    await session.commitTransaction();
+    session.endSession();
     
     res.status(200).json({
       success: true,
-      message: "City successfully deleted",
-      data: deletedCity,
+      message: "City and all related data successfully deleted",
+      data: {
+        city: deletedCity,
+        deletedActivitiesCount: activities.length,
+        deletedPackagesCount: await HolidayPackage.countDocuments({ destination: id }),
+        deletedActivityDetailsCount: await ActivityDetail.countDocuments({ activityId: { $in: activityIds } })
+      },
     });
   } catch (error: any) {
+    // If an error occurs, abort the transaction
+    await session.abortTransaction();
+    session.endSession();
+    
     res.status(500).json({
       success: false,
-      message: "Error deleting city",
+      message: "Error deleting city and related data",
       error: error.message,
     });
   }
