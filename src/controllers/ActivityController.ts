@@ -890,6 +890,7 @@ console.log(req.body)
   }
 };
 // export const editActivity = async (
+
 //   req: MulterRequest,
 //   res: Response
 // ): Promise<any> => {
@@ -1125,3 +1126,33 @@ console.log(req.body)
 //     });
 //   }
 // };
+
+export const getActivityById = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const activityId = req.params.id;
+
+    const activity = await Activity.findById(activityId).populate("city");
+
+    if (!activity) {
+      return res.status(404).json({
+        success: false,
+        message: "Activity not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: activity,
+    });
+  } catch (error: any) {
+    console.error("Error in getActivityById:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error retrieving activity",
+      error: error.message,
+    });
+  }
+};
