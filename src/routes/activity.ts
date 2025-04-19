@@ -7,7 +7,8 @@ import {
   getAllCategory,
   getActivitiesWithoutPagination,
   editActivity,
-  getActivityById
+  getActivityById,
+  deleteActivityById
   
 } from "../controllers/ActivityController";
 import upload from "../middleware/uploadMiddleware";
@@ -38,5 +39,6 @@ router.get("/category", getAllCategory);
 
 router.patch("/edit/:id",upload.array("files", 10), editActivity );
 router.get("/get-activity-by-id/:id",getActivityById );
+router.delete("/delete/:id",deleteActivityById );
 
 export default router;

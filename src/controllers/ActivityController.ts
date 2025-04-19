@@ -1156,3 +1156,42 @@ export const getActivityById = async (
     });
   }
 };
+
+export const deleteActivityById = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const activityId = req.params.id;
+
+    // Find the activity
+    const activity = await Activity.findById(activityId);
+
+    if (!activity) {
+      return res.status(404).json({
+        success: false,
+        message: "Activity not found",
+      });
+    }
+
+    // Delete the activity
+    await Activity.findByIdAndDelete(activityId);
+
+    // Remove reference from the city
+    await City.findByIdAndUpdate(activity.city, {
+      $pull: { activities: activity._id },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Activity deleted successfully",
+    });
+  } catch (error: any) {
+    console.error("Error deleting activity:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error deleting activity",
+      error: error.message,
+    });
+  }
+};
