@@ -5,7 +5,8 @@ import {
   getActivitiesByContinent,
   addActivity,
   getAllCategory,
-  getActivitiesWithoutPagination
+  getActivitiesWithoutPagination,
+  editActivity
   
 } from "../controllers/ActivityController";
 import upload from "../middleware/uploadMiddleware";
@@ -33,5 +34,7 @@ router.get("/categories/:category", getActivitiesByCategory);
 // @access  Public
 router.get("/continents/:continentId", getActivitiesByContinent);
 router.get("/category", getAllCategory);
+
+router.patch("/edit/:id",upload.array("files", 10), editActivity );
 
 export default router;
