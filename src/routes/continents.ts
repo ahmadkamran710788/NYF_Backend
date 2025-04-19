@@ -2,6 +2,8 @@ import express from "express";
 import {
   getAllContinents,
   addContinent,
+  getContinentById,
+  deleteContinentById
 } from "../controllers/ContinentController";
 import upload from "../middleware/uploadMiddleware";
 const router = express.Router();
@@ -10,6 +12,8 @@ const router = express.Router();
 // @desc    Get all continents
 // @access  Public
 router.get("/", getAllContinents);
+router.get("/:id", getContinentById);
+router.delete("/:id", deleteContinentById);
 
 // @route   POST /api/continents
 // @desc    Add a new continent

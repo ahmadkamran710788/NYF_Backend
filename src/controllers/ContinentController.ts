@@ -1,6 +1,13 @@
 import { Request, Response } from "express";
 import { Continent } from "../models/Continent";
 import { uploadToCloudinary } from "../utils/CloudinaryHelper";
+import { HolidayPackage, IHolidayPackage } from "../models/HolidayPackage";
+import { ActivityDetail } from "../models/ActivityDetails";
+import { Activity } from "../models/Activity";
+import { Deal, IDeal } from '../models/Deal';
+import { City } from "../models/City";
+import { Country } from "../models/Country";
+import mongoose from "mongoose";
 export const getAllContinents = async (req: Request, res: Response) => {
   try {
     console.log("get  in ");
@@ -86,6 +93,133 @@ export const addContinent = async (
     res.status(500).json({
       success: false,
       message: "Error adding continent",
+      error: error.message,
+    });
+  }
+};
+
+
+export const deleteContinentById = async (req: Request, res: Response): Promise<any> => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { id } = req.params;
+    
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Continent ID is required",
+      });
+    }
+
+    // Find the continent first to check if it exists
+    const continent = await Continent.findById(id).session(session);
+    
+    if (!continent) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({
+        success: false,
+        message: "Continent not found",
+      });
+    }
+
+    // Find all countries in this continent
+    const countries = await Country.find({ continent: id }).session(session);
+    const countryIds = countries.map(country => country._id);
+    
+    // Find all cities in these countries
+    const cities = await City.find({ country: { $in: countryIds } }).session(session);
+    const cityIds = cities.map(city => city._id);
+    
+    // Find all activities in these cities
+    const activities = await Activity.find({ city: { $in: cityIds } }).session(session);
+    const activityIds = activities.map(activity => activity._id);
+    
+    // Delete all activity details related to these activities
+    await ActivityDetail.deleteMany({ activityId: { $in: activityIds } }).session(session);
+    
+    // Delete all deals related to these activities
+    await Deal.deleteMany({ activity: { $in: activityIds } }).session(session);
+    
+    // Delete all activities in these cities
+    await Activity.deleteMany({ city: { $in: cityIds } }).session(session);
+    
+    // Delete all holiday packages with these cities as destinations
+    await HolidayPackage.deleteMany({ destination: { $in: cityIds } }).session(session);
+    
+    // Delete all cities in these countries
+    await City.deleteMany({ country: { $in: countryIds } }).session(session);
+    
+    // Delete all countries in this continent
+    await Country.deleteMany({ continent: id }).session(session);
+    
+    // Finally delete the continent itself
+    const deletedContinent = await Continent.findByIdAndDelete(id).session(session);
+    
+    await session.commitTransaction();
+    session.endSession();
+    
+    res.status(200).json({
+      success: true,
+      message: "Continent and all related data successfully deleted",
+      data: {
+        continent: deletedContinent,
+        deletedCounts: {
+          countries: countryIds.length,
+          cities: cityIds.length,
+          activities: activityIds.length,
+          activityDetails: await ActivityDetail.countDocuments({ activityId: { $in: activityIds } }),
+          deals: await Deal.countDocuments({ activity: { $in: activityIds } }),
+          holidayPackages: await HolidayPackage.countDocuments({ destination: { $in: cityIds } })
+        }
+      }
+    });
+  } catch (error: any) {
+    await session.abortTransaction();
+    session.endSession();
+    
+    res.status(500).json({
+      success: false,
+      message: "Error deleting continent",
+      error: error.message,
+    });
+  }
+};
+
+
+export const getContinentById = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params;
+    
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Continent ID is required",
+      });
+    }
+
+    const continent = await Continent.findById(id).populate({
+      path: "countries",
+      select: "name ",
+    });
+    
+    if (!continent) {
+      return res.status(404).json({
+        success: false,
+        message: "Continent not found",
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      data: continent,
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: "Error fetching continent",
       error: error.message,
     });
   }
