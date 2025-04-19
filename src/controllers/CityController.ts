@@ -88,6 +88,39 @@ export const getCityById = async (req: Request, res: Response): Promise<any> => 
   }
 };
 
+export const deleteCityById = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params;
+    
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "City ID is required",
+      });
+    }
+
+    const deletedCity = await City.findByIdAndDelete(id);
+    
+    if (!deletedCity) {
+      return res.status(404).json({
+        success: false,
+        message: "City not found",
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: "City successfully deleted",
+      data: deletedCity,
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: "Error deleting city",
+      error: error.message,
+    });
+  }
+};
 // Add a new city
 
 interface MulterRequest extends Request {
