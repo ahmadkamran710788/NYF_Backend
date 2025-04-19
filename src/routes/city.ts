@@ -1,6 +1,6 @@
 // src/routes/cityRoutes.ts
 import express from "express";
-import { getAllCities, addCity } from "../controllers/CityController";
+import { getAllCities, addCity,getCityById } from "../controllers/CityController";
 import { getActivitiesByCity } from "../controllers/ActivityController";
 import upload from "../middleware/uploadMiddleware";
 const router = express.Router();
@@ -9,6 +9,7 @@ const router = express.Router();
 // @desc    Get all cities
 // @access  Public
 router.get("/", getAllCities);
+router.get("/:id", getCityById);
 
 // @route   POST /api/cities
 // @desc    Add a new city

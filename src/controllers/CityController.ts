@@ -48,6 +48,45 @@ export const getAllCities = async (req: Request, res: Response): Promise<any> =>
     });
   }
 };
+export const getCityById = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params;
+    
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "City ID is required",
+      });
+    }
+
+    const city = await City.findById(id).populate({
+      path: "country",
+      select: "name continent",
+      populate: {
+        path: "continent",
+        select: "name",
+      },
+    });
+    
+    if (!city) {
+      return res.status(404).json({
+        success: false,
+        message: "City not found",
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      data: city,
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: "Error fetching city",
+      error: error.message,
+    });
+  }
+};
 
 // Add a new city
 
