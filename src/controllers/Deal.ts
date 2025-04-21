@@ -413,7 +413,7 @@ export const getDealsPricingByActivityAndDate = async (req: Request, res: Respon
 
     // If no deals match the exact date (or no deal is found at all), return "No deals available"
     if (deals.length === 0) {
-      return res.status(404).json({ message: 'No deals available for the exact date' });
+      return res.status(201).json({ message: 'No deals available for the exact date' });
     }
 
     // Transform the result to a more readable format
