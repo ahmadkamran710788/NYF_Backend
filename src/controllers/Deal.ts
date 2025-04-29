@@ -339,6 +339,114 @@ export const deleteDeal = async (req: Request, res: Response): Promise<any> => {
 // };
 
 
+// export const getDealsPricingByActivityAndDate = async (req: Request, res: Response): Promise<any> => {
+//   try {
+//     const { activityId } = req.params;
+//     const { date } = req.query;
+
+//     // Validate activity ID
+//     if (!isValidObjectId(activityId)) {
+//       return res.status(400).json({ message: 'Invalid activity ID' });
+//     }
+
+//     // Normalize the search date (if date is provided)
+//     let searchDate: Date | null = null;
+//     if (date) {
+//       searchDate = new Date(date as string);
+//       if (isNaN(searchDate.getTime())) {
+//         return res.status(400).json({ message: 'Invalid date provided' });
+//       }
+//     }
+
+//     // Check if activity exists
+//     const activity = await Activity.findById(activityId);
+//     if (!activity) {
+//       return res.status(404).json({ message: 'Activity not found' });
+//     }
+
+//     // Find deals for the specific activity
+//     const deals = await Deal.aggregate([
+//       // Match deals for the specific activity
+//       { $match: { activity: new mongoose.Types.ObjectId(activityId) } },
+      
+//       // Unwind the pricing array
+//       { $unwind: '$pricing' },
+      
+//       // If a date is provided, match the pricing date to the exact search date
+//       ...(searchDate ? [
+//         { $match: { 
+//           'pricing.date': { 
+//             $gte: new Date(searchDate.setHours(0, 0, 0, 0)), 
+//             $lt: new Date(searchDate.getTime() + 24 * 60 * 60 * 1000) 
+//           } 
+//         }}
+//       ] : []),
+
+//       // Sort to get the earliest available pricing if no date is provided
+//       { $sort: { 'pricing.date': 1 } },
+      
+//       // Group back to preserve deal structure with the earliest pricing
+//       { $group: {
+//         _id: '$_id',
+//         title: { $first: '$title' },
+//         description: { $first: '$description' },
+//         activity: { $first: '$activity' },
+//         includes: { $first: '$includes' },
+//         highlights: { $first: '$highlights' },
+//         pricing: { $first: '$pricing' }
+//       }},
+      
+//       // Optionally populate activity details
+//       { $lookup: {
+//         from: 'activities',
+//         localField: 'activity',
+//         foreignField: '_id',
+//         as: 'activityDetails'
+//       }},
+      
+//       // Unwind activity details
+//       { $unwind: { 
+//         path: '$activityDetails', 
+//         preserveNullAndEmptyArrays: true 
+//       }}
+//     ]);
+
+//     // If no deals match the exact date (or no deal is found at all), return "No deals available"
+//     if (deals.length === 0) {
+//       return res.status(201).json({ message: 'No deals available for the exact date' });
+//     }
+
+//     // Transform the result to a more readable format
+//     const formattedDeals = deals.map(deal => ({
+//       _id: deal._id,
+//       title: deal.title,
+//       description: deal.description,
+//       includes: deal.includes,
+//       highlights: deal.highlights,
+//       pricing: {
+//         date: deal.pricing.date,
+//         adultPrice: deal.pricing.adultPrice,
+//         childPrice: deal.pricing.childPrice
+//       },
+//       activityDetails: deal.activityDetails ? {
+//         name: deal.activityDetails.name,
+//         category: deal.activityDetails.category
+//       } : null
+//     }));
+
+//     // Respond with the deals
+//     res.status(200).json({
+//       message: 'Deals retrieved successfully',
+//       deals: formattedDeals,
+//       count: formattedDeals.length,
+//       searchDate
+//     });
+
+//   } catch (error) {
+//     handleError(res, error, 'Error retrieving deals pricing');
+//   }
+// };
+
 export const getDealsPricingByActivityAndDate = async (req: Request, res: Response): Promise<any> => {
   try {
     const { activityId } = req.params;
@@ -411,11 +519,6 @@ export const getDealsPricingByActivityAndDate = async (req: Request, res: Respon
       }}
     ]);
 
-    // If no deals match the exact date (or no deal is found at all), return "No deals available"
-    if (deals.length === 0) {
-      return res.status(201).json({ message: 'No deals available for the exact date' });
-    }
-
     // Transform the result to a more readable format
     const formattedDeals = deals.map(deal => ({
       _id: deal._id,
@@ -434,9 +537,9 @@ export const getDealsPricingByActivityAndDate = async (req: Request, res: Respon
       } : null
     }));
 
-    // Respond with the deals
+    // Respond with the deals (empty array if no deals found)
     res.status(200).json({
-      message: 'Deals retrieved successfully',
+      message: deals.length > 0 ? 'Deals retrieved successfully' : 'No deals found',
       deals: formattedDeals,
       count: formattedDeals.length,
       searchDate
@@ -446,8 +549,6 @@ export const getDealsPricingByActivityAndDate = async (req: Request, res: Respon
     handleError(res, error, 'Error retrieving deals pricing');
   }
 };
-
-
 
 
 
