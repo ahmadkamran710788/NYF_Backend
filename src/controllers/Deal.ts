@@ -501,6 +501,7 @@ export const getDealsPricingByActivityAndDate = async (req: Request, res: Respon
         activity: { $first: '$activity' },
         includes: { $first: '$includes' },
         highlights: { $first: '$highlights' },
+        image: { $first: '$image' },
         pricing: { $first: '$pricing' }
       }},
       
@@ -526,6 +527,7 @@ export const getDealsPricingByActivityAndDate = async (req: Request, res: Respon
       description: deal.description,
       includes: deal.includes,
       highlights: deal.highlights,
+      image: deal.image,
       pricing: {
         date: deal.pricing.date,
         adultPrice: deal.pricing.adultPrice,
