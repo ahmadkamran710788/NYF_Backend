@@ -49,7 +49,7 @@ const EnquirySchema = new Schema({
   // Field to differentiate between enquiry types
   enquiryType: {
     type: String,
-    enum: ['holidayPackage', 'carService'],
+    enum: ['holidayPackage', 'carService','honeymoonPackage'],
     required: true
   },
   
