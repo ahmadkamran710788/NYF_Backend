@@ -411,7 +411,8 @@ export const getAllEnquiries = async (req: Request, res: Response) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .populate('packageId', 'name destination');
+      .populate('packageId', 'name destination')
+      .populate('vehicleId', 'vehicleModel ratePerKm');
 
     const total = await Enquiry.countDocuments();
 
