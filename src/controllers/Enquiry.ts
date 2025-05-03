@@ -434,7 +434,8 @@ export const getAllEnquirieswithpagination = async (req: Request, res: Response)
   try {
     const enquiries = await Enquiry.find()
       .sort({ createdAt: -1 })
-      .populate('packageId', 'name destination');
+      .populate('packageId', 'name destination')
+      .populate('vehicleId', 'vehicleModel ratePerKm');;
 
     const total = enquiries.length;
 
