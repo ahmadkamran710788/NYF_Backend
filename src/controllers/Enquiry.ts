@@ -243,7 +243,7 @@ export const createEnquiry = async (req: Request, res: Response): Promise<any> =
     if (enquiryType === 'holidayPackage') {
       await handleHolidayPackageEnquiry(req, res, enquiryData);
     }else if (enquiryType === 'honeymoonPackage') {
-      await handleHolidayPackageEnquiry(req, res, enquiryData);
+      await handleHoneymoonPackageEnquiry(req, res, enquiryData);
     } else if (enquiryType === 'carService') {
       await handleCarServiceEnquiry(req, res, enquiryData);
     } else {
@@ -323,6 +323,70 @@ const handleHolidayPackageEnquiry = async (req: Request, res: Response, enquiryD
   enquiryData.adults = adults;
   enquiryData.children = children || 0;
   enquiryData.childAges = children > 0 ? childAges : undefined;
+  enquiryData.packageId = packageId;
+  enquiryData.budget = finalBudget;
+  
+  // Create and save enquiry
+  const newEnquiry = new Enquiry(enquiryData);
+  const savedEnquiry = await newEnquiry.save();
+  
+  res.status(201).json({
+    message: 'Holiday package enquiry submitted successfully',
+    enquiry: savedEnquiry
+  });
+};
+const handleHoneymoonPackageEnquiry = async (req: Request, res: Response, enquiryData: any): Promise<any> => {
+  const {
+    adults,
+    packageId,
+    budget
+  } = req.body;
+  
+  // Validate package
+  if (!mongoose.Types.ObjectId.isValid(packageId)) {
+    return res.status(400).json({ message: 'Invalid package ID' });
+  }
+  
+  const packageExists = await HolidayPackage.findById(packageId);
+  if (!packageExists) {
+    return res.status(400).json({
+      message: 'Invalid package selected'
+    });
+  }
+  
+  // Determine budget (use package discounted price if not provided)
+  const finalBudget = budget || packageExists.discountPrice;
+  
+  // Validate childAges if children are present
+  // if (children > 0) {
+  //   // Check if childAges is provided and is an array
+  //   if (!childAges || !Array.isArray(childAges)) {
+  //     return res.status(400).json({
+  //       message: 'Child ages must be provided as an array when children are present'
+  //     });
+  //   }
+    
+  //   // Check if the number of ages matches the number of children
+  //   if (childAges.length !== children) {
+  //     return res.status(400).json({
+  //       message: 'Number of child ages must match the number of children'
+  //     });
+  //   }
+    
+  //   // Validate each age
+  //   for (const age of childAges) {
+  //     if (typeof age !== 'number' || age < 0 || age > 17) {
+  //       return res.status(400).json({
+  //         message: 'Each child age must be a number between 0 and 17'
+  //       });
+  //     }
+  //   }
+  // }
+  
+  // Add holiday package specific fields
+  enquiryData.adults = adults || 2;
+  // enquiryData.children = children || 0;
+  // enquiryData.childAges = children > 0 ? childAges : undefined;
   enquiryData.packageId = packageId;
   enquiryData.budget = finalBudget;
   
