@@ -242,11 +242,13 @@ export const createEnquiry = async (req: Request, res: Response): Promise<any> =
     // Handle based on enquiry type
     if (enquiryType === 'holidayPackage') {
       await handleHolidayPackageEnquiry(req, res, enquiryData);
+    }else if (enquiryType === 'honeymoonPackage') {
+      await handleHolidayPackageEnquiry(req, res, enquiryData);
     } else if (enquiryType === 'carService') {
       await handleCarServiceEnquiry(req, res, enquiryData);
     } else {
       return res.status(400).json({
-        message: 'Invalid enquiry type. Must be "holidayPackage" or "carService"'
+        message: 'Invalid enquiry type. Must be "holidayPackage" or "carService" or "honeymoonPackage"'
       });
     }
   } catch (error: any) {
