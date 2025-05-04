@@ -14,6 +14,7 @@ import dealRoute from "./deal";
 import contactRoute from "./Contact";
 import AdminRoutes from "./Admin";
 import vehicleRoutes from "./vehicle";
+import dashboardRoutes from "./dashboard";
 const router = express.Router();
 
 router.use("/continents", continentRoutes);
@@ -30,5 +31,6 @@ router.use("/global-search", globalRoutes);
 router.use("/deal", dealRoute);
 router.use("/contact", contactRoute); 
 router.use("/vehicle", vehicleRoutes);
-router.use("/admin", AdminRoutes);  
+router.use("/admin", AdminRoutes); 
+router.use("/dashboard", dashboardRoutes); 
 export default router;
