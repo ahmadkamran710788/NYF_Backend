@@ -12,6 +12,9 @@ import { Vehicle } from '../models/Vehicle';
  * @route GET /api/dashboard/summary
  * @access Private (Admin)
  */
+
+
+
 export const getDashboardSummary = async (req: Request, res: Response) => {
   try {
     const today = new Date();
@@ -41,6 +44,7 @@ export const getDashboardSummary = async (req: Request, res: Response) => {
       dailyDates.push(new Date(date));
     }
 
+    // -------------------- BOOKING STATISTICS --------------------
     // Daily bookings (last 7 days)
     const dailyBookings = await Promise.all(
       dailyDates.map(async (startDate) => {
@@ -96,7 +100,77 @@ export const getDashboardSummary = async (req: Request, res: Response) => {
       createdAt: { $gte: new Date(today.setMonth(today.getMonth() - 1)) }
     });
     
-    const trend = currentPeriodBookings >= previousPeriodBookings ? "up" : "down";
+    const bookingTrend = currentPeriodBookings >= previousPeriodBookings ? "up" : "down";
+
+    // -------------------- ENQUIRY STATISTICS --------------------
+    // Daily enquiries (last 7 days)
+    const dailyEnquiries = await Promise.all(
+      dailyDates.map(async (startDate) => {
+        const endDate = new Date(startDate);
+        endDate.setDate(startDate.getDate() + 1);
+        
+        return Enquiry.countDocuments({
+          createdAt: { $gte: startDate, $lt: endDate }
+        });
+      })
+    );
+
+    // Last week's enquiries
+    const lastWeekEnquiriesCount = await Enquiry.countDocuments({
+      createdAt: { $gte: lastWeekStart, $lt: lastWeekEnd }
+    });
+
+    // Monthly enquiries (last 12 months)
+    const monthlyEnquiries = [];
+    for (let i = 11; i >= 0; i--) {
+      const startDate = new Date(today);
+      startDate.setMonth(today.getMonth() - i);
+      startDate.setDate(1);
+      startDate.setHours(0, 0, 0, 0);
+      
+      const endDate = new Date(startDate);
+      endDate.setMonth(startDate.getMonth() + 1);
+      
+      const count = await Enquiry.countDocuments({
+        createdAt: { $gte: startDate, $lt: endDate }
+      });
+      
+      monthlyEnquiries.push(count);
+    }
+
+    // Calculate yearly enquiries (assuming last 12 months data)
+    const yearlyEnquiries = [...monthlyEnquiries];
+
+    // Total enquiries
+    const totalEnquiries = await Enquiry.countDocuments();
+
+    // Calculate enquiry trend
+    const previousPeriodEnquiries = await Enquiry.countDocuments({
+      createdAt: { 
+        $gte: new Date(today.setMonth(today.getMonth() - 2)),
+        $lt: new Date(today.setMonth(today.getMonth() - 1))
+      }
+    });
+    
+    const currentPeriodEnquiries = await Enquiry.countDocuments({
+      createdAt: { $gte: new Date(today.setMonth(today.getMonth() - 1)) }
+    });
+    
+    const enquiryTrend = currentPeriodEnquiries >= previousPeriodEnquiries ? "up" : "down";
+
+    // Get recent enquiries with package details
+    const recentEnquiries = await Enquiry.find()
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .populate({
+        path: 'packageId',
+        model: 'HolidayPackage'
+      })
+      .populate({
+        path: 'vehicleId',
+        model: 'Vehicle'
+      })
+      .lean();
 
     // Get recent bookings with activity and deal details
     const recentBookings = await Booking.find()
@@ -107,9 +181,10 @@ export const getDashboardSummary = async (req: Request, res: Response) => {
       .lean();
 
     // Get total counts for other entities
-    const totalEnquiries = await Enquiry.countDocuments();
     const totalPackages = await HolidayPackage.countDocuments();
     const totalVehicles = await Vehicle.countDocuments();
+  
+    
 
     res.status(200).json({
       bookings: {
@@ -118,10 +193,15 @@ export const getDashboardSummary = async (req: Request, res: Response) => {
         monthly: monthlyBookings,
         yearly: yearlyBookings,
         total: totalBookings,
-        trend: trend
+        trend: bookingTrend
       },
       enquiries: {
-        total: totalEnquiries
+        daily: dailyEnquiries,
+        lastWeek: lastWeekEnquiriesCount,
+        monthly: monthlyEnquiries,
+        yearly: yearlyEnquiries,
+        total: totalEnquiries,
+        trend: enquiryTrend
       },
       packages: {
         total: totalPackages
@@ -129,7 +209,8 @@ export const getDashboardSummary = async (req: Request, res: Response) => {
       vehicles: {
         total: totalVehicles
       },
-      recentBookings: recentBookings
+      recentBookings: recentBookings,
+      recentEnquiries: recentEnquiries
     });
     
   } catch (error: any) {
