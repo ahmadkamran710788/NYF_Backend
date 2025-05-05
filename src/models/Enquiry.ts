@@ -13,8 +13,12 @@ export interface IEnquiry extends Document {
   budget?: number;
   message?: string;
   packageId: mongoose.Types.ObjectId;
+  dealId: mongoose.Types.ObjectId;
   status?: 'Pending' | 'Contacted' | 'Booked' | 'Cancelled';
-  enquiryType: 'holidayPackage' | 'carService';
+  enquiryType: 'holidayPackage' | 'carService' | 'honeymoonPackage' | 'deals';
+//deal
+nights?: number;
+hotelStars?: number;
   //vehicle 
   pickupLocation?: string;
   dropoffLocation?: string;
@@ -49,7 +53,7 @@ const EnquirySchema = new Schema({
   // Field to differentiate between enquiry types
   enquiryType: {
     type: String,
-    enum: ['holidayPackage', 'carService','honeymoonPackage'],
+    enum: ['holidayPackage', 'carService','honeymoonPackage','deals'],
     required: true
   },
   
@@ -106,6 +110,17 @@ const EnquirySchema = new Schema({
       message: 'Package ID is required for holiday package enquiries'
     }
   },
+  dealId: { 
+    type: Schema.Types.ObjectId, 
+    ref: 'Deal',
+    validate: {
+      validator: function(this: IEnquiry, dealId: mongoose.Types.ObjectId) {
+        // Only required if enquiry type is holidayPackage
+        return this.enquiryType !== 'deals' || dealId;
+      },
+      message: 'deaks ID is required for deals enquiries'
+    }
+  },
   
   // Car service specific fields
   pickupLocation: {
@@ -137,6 +152,28 @@ const EnquirySchema = new Schema({
         return this.enquiryType !== 'carService' || numberOfGuests >= 1;
       },
       message: 'Number of guests is required for car service enquiries'
+    }
+  },
+  nights: {
+    type: Number,
+    min: [1, 'Number of night must be at least 1'],
+    validate: {
+      validator: function(this: IEnquiry, nights: number) {
+        // Only required if enquiry type is carService
+        return this.enquiryType !== 'deals' || nights >= 1;
+      },
+      message: 'Number of nights is required for deals service enquiries'
+    }
+  },
+  hotelStars:{
+    type: Number,
+    min: [1, 'Number of guests must be at least 1'],
+    validate: {
+      validator: function(this: IEnquiry, hotelStars: number) {
+        // Only required if enquiry type is deals
+        return this.enquiryType !== 'deals' || hotelStars >= 3;
+      },
+      message: 'Number of hotel stars is required for deals service enquiries'
     }
   },
   numberOfLuggageBags: {

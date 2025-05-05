@@ -1,7 +1,8 @@
-import { Request, Response } from 'express';
+import e, { Request, Response } from 'express';
 import { Enquiry, IEnquiry } from '../models/Enquiry';
 import { HolidayPackage } from '../models/HolidayPackage';
 import { Vehicle } from '../models/Vehicle';
+import {Deal} from '../models/Deal';
 import mongoose from 'mongoose';
 
 // Fetch package price
@@ -244,6 +245,8 @@ export const createEnquiry = async (req: Request, res: Response): Promise<any> =
       await handleHolidayPackageEnquiry(req, res, enquiryData);
     }else if (enquiryType === 'honeymoonPackage') {
       await handleHoneymoonPackageEnquiry(req, res, enquiryData);
+    }else if (enquiryType === 'deals') {
+      await handleDealEnquiry(req, res, enquiryData,travelDate);
     } else if (enquiryType === 'carService') {
       await handleCarServiceEnquiry(req, res, enquiryData);
     } else {
@@ -268,7 +271,6 @@ export const createEnquiry = async (req: Request, res: Response): Promise<any> =
   }
 };
 
-// Handler for holiday package enquiries
 const handleHolidayPackageEnquiry = async (req: Request, res: Response, enquiryData: any): Promise<any> => {
   const {
     adults,
@@ -332,6 +334,124 @@ const handleHolidayPackageEnquiry = async (req: Request, res: Response, enquiryD
   
   res.status(201).json({
     message: 'Holiday package enquiry submitted successfully',
+    enquiry: savedEnquiry
+  });
+};
+// Handler for holiday package enquiries
+const handleDealEnquiry = async (req: Request, res: Response, enquiryData: any,travelDate: any): Promise<any> => {
+  const {
+    adults,
+    nights,
+    hotelStars,
+    dealId,
+    budget,
+    children,
+    childAges
+  } = req.body;
+  
+  // Validate package
+  if (!mongoose.Types.ObjectId.isValid(dealId)) {
+    return res.status(400).json({ message: 'Invalid package ID' });
+  }
+  
+  const dealExists = await Deal.findById(dealId);
+  if (!dealExists) {
+    return res.status(400).json({
+      message: 'Invalid Deals selected'
+    });
+  }
+  
+  // Determine budget (use package discounted price if not provided)
+  // const finalBudget = budget || dealExists.pricing[0].adultPrice;
+  const parsedTravelDate = new Date(travelDate);
+  if (isNaN(parsedTravelDate.getTime())) {
+    return res.status(400).json({
+      message: 'Invalid travel date format'
+    });
+  }
+
+  // Find the pricing that matches the travel date
+  // We'll consider a match if the date is the same day (ignoring time)
+  // const matchingPricing = dealExists.pricing.find(price => {
+  //   const priceDate = new Date(price.date);
+  //   return priceDate.getFullYear() === parsedTravelDate.getFullYear() &&
+  //          priceDate.getMonth() === parsedTravelDate.getMonth() &&
+  //          priceDate.getDate() === parsedTravelDate.getDate();
+  // });
+
+  // if (!matchingPricing) {
+  //   // return res.status(400).json({
+  //   //   message: 'No pricing available for the selected travel date'
+  //   // });
+  //   return 0;
+  // }
+  const matchingPricing = dealExists.pricing.find(price => {
+    const priceDate = new Date(price.date);
+    return priceDate.getFullYear() === parsedTravelDate.getFullYear() &&
+           priceDate.getMonth() === parsedTravelDate.getMonth() &&
+           priceDate.getDate() === parsedTravelDate.getDate();
+  });
+
+  // If no matching pricing is found, use 0 for prices
+  let adultPrice = 0;
+  let childPrice = 0;
+  
+  if (matchingPricing) {
+    adultPrice = matchingPricing.adultPrice;
+    childPrice = matchingPricing.childPrice;
+  }
+
+  // Calculate total price based on adults and children
+  const adultTotal = adultPrice * (adults || 0);
+  const childTotal = childPrice * (children || 0);
+  const totalPrice = adultTotal + childTotal;
+
+  
+  
+  // Determine budget (use calculated total price if not provided)
+  const finalBudget = budget || totalPrice;
+  
+  // Validate childAges if children are present
+  if (children > 0) {
+    // Check if childAges is provided and is an array
+    if (!childAges || !Array.isArray(childAges)) {
+      return res.status(400).json({
+        message: 'Child ages must be provided as an array when children are present'
+      });
+    }
+    
+    // Check if the number of ages matches the number of children
+    if (childAges.length !== children) {
+      return res.status(400).json({
+        message: 'Number of child ages must match the number of children'
+      });
+    }
+    
+    // Validate each age
+    for (const age of childAges) {
+      if (typeof age !== 'number' || age < 0 || age > 17) {
+        return res.status(400).json({
+          message: 'Each child age must be a number between 0 and 17'
+        });
+      }
+    }
+  }
+  
+  // Add holiday package specific fields
+  enquiryData.adults = adults;
+  enquiryData.children = children || 0;
+  enquiryData.childAges = children > 0 ? childAges : undefined;
+  enquiryData.nights = nights;
+  enquiryData.hotelStars = hotelStars;
+  enquiryData.dealId = dealId;
+  enquiryData.budget = finalBudget;
+  
+  // Create and save enquiry
+  const newEnquiry = new Enquiry(enquiryData);
+  const savedEnquiry = await newEnquiry.save();
+  
+  res.status(201).json({
+    message: 'Deals enquiry submitted successfully',
     enquiry: savedEnquiry
   });
 };
@@ -501,7 +621,8 @@ export const getAllEnquirieswithpagination = async (req: Request, res: Response)
     const enquiries = await Enquiry.find()
       .sort({ createdAt: -1 })
       .populate('packageId', 'name destination')
-      .populate('vehicleId', 'vehicleModel ratePerKm');;
+      .populate('vehicleId', 'vehicleModel ratePerKm')
+      .populate('dealId','title');
 
     const total = enquiries.length;
 
