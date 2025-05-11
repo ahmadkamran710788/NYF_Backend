@@ -3,6 +3,7 @@ import { HolidayPackage, IHolidayPackage } from "../models/HolidayPackage";
 import mongoose from "mongoose";
 import { uploadToCloudinary } from "../utils/CloudinaryHelper";
 import { City } from "../models/City";
+import { Country } from "../models/Country";
 // Get all holiday packages
 export const getAllPackages = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -268,9 +269,14 @@ export const getPackagesByDestinationName = async (req: Request, res: Response):
       const packageType = req.query.type as string;
       
       // Find the destination by name first
-      const destination = await City.findOne({ 
+      var destination = await City.findOne({ 
         name: { $regex: new RegExp(destinationName, 'i') } 
       });
+      if (!destination) {
+        destination = await Country.findOne({
+          name: { $regex: new RegExp(destinationName, 'i') }
+        });
+      }
       
       if (!destination) {
         res.status(404).json({ success: false, error: "Destination not found" });
