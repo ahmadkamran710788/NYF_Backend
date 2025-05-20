@@ -118,8 +118,7 @@ export const globalSearch = async (req: Request, res: Response): Promise<any> =>
       
       res.json({
         activities,
-        holidayPackages,
-        totalResults: activities.length + holidayPackages.length
+        totalResults: activities.length 
       });
     } catch (error) {
       res.status(500).json({
