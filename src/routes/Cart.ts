@@ -5,7 +5,9 @@ import {
   removeItemFromCart, 
   updateCartItem, 
   clearCart,
-  checkoutCart
+  checkoutCart,
+  completeCheckout,
+  cancelCheckout
 } from "../controllers/CartController";
 
 const router = express.Router();
@@ -24,6 +26,8 @@ router.delete('/:cartId', clearCart);
 
 // Checkout
 router.post('/:cartId/checkout', checkoutCart);
+router.get('/complete', completeCheckout);
+router.get('/cancel', cancelCheckout);
 
 export default router;
 

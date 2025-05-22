@@ -1,43 +1,5 @@
-// // models/Booking.ts
-// import mongoose, { Schema, Document } from "mongoose";
-
-// export interface IBooking extends Document {
-//   activityId: mongoose.Types.ObjectId;
-//   bookingDate: Date;
-//   numberOfAdults: number;
-//   numberOfChildren: number;
-//   totalPrice: number;
-//   customerEmail: string;
-//   customerName: string;
-//   customerPhone: string;
-//   bookingReference: string;
-//   status: string;
-//   createdAt: Date;
-// }
-
-// const BookingSchema = new Schema({
-//   activityId: { type: Schema.Types.ObjectId, ref: "Activity", required: true },
-//   bookingDate: { type: Date, required: true },
-//   numberOfAdults: { type: Number, required: true, min: 1 },
-//   numberOfChildren: { type: Number, default: 0 },
-//   totalPrice: { type: Number, required: true },
-//   customerEmail: { type: String, required: true },
-//   customerName: { type: String, required: true },
-//   customerPhone: { type: String, required: true },
-//   bookingReference: { type: String, required: true, unique: true },
-//   status: { 
-//     type: String, 
-//     enum: ["pending", "confirmed", "cancelled"], 
-//     default: "pending" 
-//   },
-//   createdAt: { type: Date, default: Date.now }
-// });
-
-// export const Booking = mongoose.model<IBooking>("Booking", BookingSchema);
-
-
-
 import mongoose, { Schema, Document } from "mongoose";
+
 export enum BookingStatus {
   PENDING = "pending",
   COMPLETED = "completed",
@@ -45,14 +7,15 @@ export enum BookingStatus {
 }
 
 export interface IBooking extends Document {
-  activity: mongoose.Types.ObjectId;
-  deal: mongoose.Types.ObjectId;
-  bookingDate: Date;
-  numberOfChildren: number;
-  numberOfAdults: number;
+  activity?: mongoose.Types.ObjectId; // Made optional
+  deal?: mongoose.Types.ObjectId; // Made optional
+  cart?: mongoose.Types.ObjectId; // Optional cart reference
+  bookingDate?: Date; // Made optional
+  numberOfChildren?: number; // Made optional
+  numberOfAdults?: number; // Made optional
   totalPrice: number;
-  email: string;
-  phoneNumber: string;
+  email?: string; // Made optional
+  phoneNumber?: string; // Made optional
   bookingReference: string;
   status: BookingStatus;
 }
@@ -61,25 +24,30 @@ const BookingSchema = new Schema({
   activity: { 
     type: Schema.Types.ObjectId, 
     ref: "Activity", 
-    required: true 
+    required: false // Made optional
   },
   deal: { 
     type: Schema.Types.ObjectId, 
     ref: "Deal", 
-    required: true 
+    required: false // Made optional
+  },
+  cart: { 
+    type: Schema.Types.ObjectId, 
+    ref: "Cart", 
+    required: false // Optional cart reference
   },
   bookingDate: { 
     type: Date, 
-    required: true 
+    required: false // Made optional
   },
   numberOfChildren: { 
     type: Number, 
-    required: true,
+    required: false, // Made optional
     min: 0 
   },
   numberOfAdults: { 
     type: Number, 
-    required: true,
+    required: false, // Made optional
     min: 1 
   },
   totalPrice: { 
@@ -88,14 +56,14 @@ const BookingSchema = new Schema({
   },
   email: { 
     type: String, 
-    required: true,
+    required: false, // Made optional
     lowercase: true,
     trim: true,
     match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please fill a valid email address']
   },
   phoneNumber: { 
     type: String, 
-    required: true,
+    required: false, // Made optional
     trim: true,
     match: [/^\+?[1-9]\d{1,14}$/, 'Please fill a valid phone number']
   },
