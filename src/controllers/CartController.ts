@@ -748,17 +748,18 @@ export const completeCheckout = async (req: Request, res: Response): Promise<any
     // You might want to send confirmation emails here
     // await sendBookingConfirmationEmail(completedBooking);
 
-    res.status(200).json({
-      message: 'Your payment was successful and booking has been confirmed!',
-      paymentStatus: stripeSession.payment_status,
-      booking: {
-        bookingReference: completedBooking?.bookingReference,
-        totalPrice: completedBooking?.totalPrice,
-        status: completedBooking?.status,
-        email: completedBooking?.email,
-        phoneNumber: completedBooking?.phoneNumber
-      }
-    });
+    // res.status(200).json({
+    //   message: 'Your payment was successful and booking has been confirmed!',
+    //   paymentStatus: stripeSession.payment_status,
+    //   booking: {
+    //     bookingReference: completedBooking?.bookingReference,
+    //     totalPrice: completedBooking?.totalPrice,
+    //     status: completedBooking?.status,
+    //     email: completedBooking?.email,
+    //     phoneNumber: completedBooking?.phoneNumber
+    //   }
+    // });
+     res.redirect(`${process.env.REDIRCT_URL_SUCCESS}`);
 
   } catch (error) {
     console.error('Error completing checkout:', error);
@@ -817,7 +818,7 @@ export const cancelCheckout = async (req: Request, res: Response): Promise<any> 
     // Keep the cart items so user can modify and try again
     // Don't clear the cart on cancellation
 
-    res.redirect('/');
+    res.redirect(`${process.env.REDIRCT_URL_CANCEL}`);
   } catch (error) {
     console.error('Error in cancel checkout:', error);
     res.redirect('/?error=cancel_failed');
