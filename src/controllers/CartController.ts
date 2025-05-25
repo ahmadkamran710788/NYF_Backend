@@ -719,30 +719,30 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
     await booking.save({ session });
     
     // Create Stripe checkout session
-    const stripeSession = await stripe.checkout.sessions.create({
-      line_items: cart.items.map(item => ({
-        price_data: {
-          currency: 'usd',
-          product_data: {
-            name: `${(item.activity as any).name}`,
-            description: `Booking Date: ${item.bookingDate.toDateString()}, Adults: ${item.numberOfAdults}, Children: ${item.numberOfChildren}`
-          },
-          unit_amount: Math.round(item.subtotal * 100) // Convert to cents
-        },
-        quantity: 1
-      })),
-      mode: 'payment',
-      shipping_address_collection: {
-        allowed_countries: ['US', 'BR']
+   const stripeSession = await stripe.checkout.sessions.create({
+  line_items: cart.items.map(item => ({
+    price_data: {
+      currency: 'usd',
+      product_data: {
+        name: `${(item.activity as any).name}`,
+        description: `Booking Date: ${item.bookingDate.toDateString()}, Adults: ${item.numberOfAdults}, Children: ${item.numberOfChildren}`
       },
-      success_url: `${process.env.BASE_URL}/complete?session_id={CHECKOUT_SESSION_ID}&cart_id=${cartId}`,
-      cancel_url: `${process.env.BASE_URL}/cancel?cart_id=${cartId}`,
-      metadata: {
-        cartId: cartId,
-        email: email,
-        phoneNumber: phoneNumber,
-      }
-    });
+      unit_amount: Math.round(item.subtotal * 100) // Convert to cents
+    },
+    quantity: 1
+  })),
+  mode: 'payment',
+  // Pre-fill customer email (since you already have it from req.body)
+  customer_email: email,
+  // Remove shipping address collection entirely
+  success_url: `${process.env.BASE_URL}/complete?session_id={CHECKOUT_SESSION_ID}&cart_id=${cartId}`,
+  cancel_url: `${process.env.BASE_URL}/cancel?cart_id=${cartId}`,
+  metadata: {
+    cartId: cartId,
+    email: email,
+    phoneNumber: phoneNumber,
+  }
+});
     
     // DON'T clear the cart here - do it after successful payment
     // The cart should be cleared in the success webhook or completion handler
