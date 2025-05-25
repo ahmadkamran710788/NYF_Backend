@@ -640,6 +640,89 @@ export const getAllBookingsWithPagination = async (req: Request, res: Response):
   }
 };
 
+// export const getAllBookings = async (req: Request, res: Response): Promise<any> => {
+//   try {
+//     console.log("booking")
+//     // Extract query parameters
+//     const { 
+//       status, 
+//       startDate, 
+//       endDate, 
+//       sortBy = 'createdAt', 
+//       sortOrder = 'desc',
+//       search
+//     } = req.query;
+
+//     // Build filter object
+//     const filter: any = {};
+
+//     // Add status filter if provided and valid
+//     if (status && Object.values(BookingStatus).includes(status as BookingStatus)) {
+//       filter.status = status;
+//     }
+
+//     // Add date range filter if provided
+//     if (startDate || endDate) {
+//       filter.bookingDate = {};
+      
+//       if (startDate) {
+//         const parsedStartDate = new Date(startDate as string);
+//         if (!isNaN(parsedStartDate.getTime())) {
+//           filter.bookingDate.$gte = parsedStartDate;
+//         }
+//       }
+      
+//       if (endDate) {
+//         const parsedEndDate = new Date(endDate as string);
+//         if (!isNaN(parsedEndDate.getTime())) {
+//           filter.bookingDate.$lte = parsedEndDate;
+//         }
+//       }
+//     }
+
+//     // Add search functionality for booking reference, email, and phone number
+//     if (search && typeof search === 'string') {
+//       const searchRegex = new RegExp(search, 'i');
+//       filter.$or = [
+//         { bookingReference: searchRegex },
+//         { email: searchRegex },
+//         { phoneNumber: searchRegex }
+//       ];
+//     }
+
+//     // Validate sort parameters
+//     const allowedSortFields = ['createdAt', 'bookingDate', 'totalPrice', 'status'];
+//     const sortField = allowedSortFields.includes(sortBy as string) ? sortBy : 'createdAt';
+//     const sortDirection = (sortOrder as string).toLowerCase() === 'asc' ? 1 : -1;
+
+//     // Build sort object
+//     const sort: any = {};
+//     sort[sortField as string] = sortDirection;
+
+//     // Execute query without pagination
+//     const bookings = await Booking.find(filter)
+//       .sort(sort)
+//       .populate('activity', 'name category')
+//       .populate('deal', 'title');
+
+//     res.status(200).json({
+//       message: 'Bookings retrieved successfully',
+//       data: {
+//         bookings,
+//         count: bookings.length
+//       }
+//     });
+//   } catch (error) {
+//     console.error('Error retrieving bookings:', error);
+//     res.status(500).json({ 
+//       message: 'Error retrieving bookings', 
+//       error: error instanceof Error ? error.message : 'Unknown error' 
+//     });
+//   }
+// };
+
+
+
 export const getAllBookings = async (req: Request, res: Response): Promise<any> => {
   try {
     console.log("booking")
@@ -699,11 +782,19 @@ export const getAllBookings = async (req: Request, res: Response): Promise<any> 
     const sort: any = {};
     sort[sortField as string] = sortDirection;
 
-    // Execute query without pagination
+    // Execute query with comprehensive population
     const bookings = await Booking.find(filter)
       .sort(sort)
-      .populate('activity', 'name category')
-      .populate('deal', 'title');
+      .populate('activity', 'name category _id')
+      .populate('deal', 'title _id')
+      .populate({
+        path: 'items.activity',
+        select: 'name category _id'
+      })
+      .populate({
+        path: 'items.deal',
+        select: 'title _id'
+      });
 
     res.status(200).json({
       message: 'Bookings retrieved successfully',
@@ -720,7 +811,6 @@ export const getAllBookings = async (req: Request, res: Response): Promise<any> 
     });
   }
 };
-
 /**
  * Generate unique booking reference
  * @returns Unique booking reference string

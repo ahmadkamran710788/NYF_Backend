@@ -36,6 +36,52 @@ const BookingSchema = new Schema({
     ref: "Cart", 
     required: false // Optional cart reference
   },
+  items: [{
+    activity: { 
+      type: Schema.Types.ObjectId, 
+      ref: "Activity", 
+      required: true 
+    },
+    deal: { 
+      type: Schema.Types.ObjectId, 
+      ref: "Deal", 
+      required: true 
+    },
+    bookingDate: { 
+      type: Date, 
+      required: true 
+    },
+    numberOfAdults: { 
+      type: Number, 
+      required: true, 
+      min: 0 
+    },
+    numberOfChildren: { 
+      type: Number, 
+      required: true, 
+      min: 0 
+    },
+    adultPrice: { 
+      type: Number, 
+      required: true 
+    },
+    childPrice: { 
+      type: Number, 
+      required: true 
+    },
+    subtotal: { 
+      type: Number, 
+      required: true 
+    },
+    activityName: { 
+      type: String, 
+      required: false 
+    },
+    dealTitle: { 
+      type: String, 
+      required: false 
+    }
+  }],
   bookingDate: { 
     type: Date, 
     required: false // Made optional

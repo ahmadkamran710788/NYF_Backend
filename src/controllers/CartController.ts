@@ -500,29 +500,157 @@ export const clearCart = async (req: Request, res: Response): Promise<any> => {
 //     session.endSession();
 //   }
 // };
+//this one is working
+// export const checkoutCart = async (req: Request, res: Response): Promise<any> => {
+//   const session = await mongoose.startSession();
+     
+//   try {
+//     // Start transaction
+//     session.startTransaction();
+        
+//     // Get cart ID (from params or session)
+//     let { cartId } = req.params;
+//     if (!cartId) {
+//       cartId = getOrCreateSessionId(req);
+//     }
+        
+//     const { email, phoneNumber } = req.body;
+        
+//     // Validate required fields
+//     if (!email || !phoneNumber) {
+//       return res.status(400).json({
+//         message: 'Email and phone number are required'
+//       });
+//     }
+        
+//     // Validate email format
+//     const emailRegex = /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/;
+//     if (!emailRegex.test(email)) {
+//       return res.status(400).json({
+//         message: 'Invalid email format'
+//       });
+//     }
+        
+//     // Validate phone number
+//     const phoneRegex = /^\+?[1-9]\d{1,14}$/;
+//     if (!phoneRegex.test(phoneNumber)) {
+//       return res.status(400).json({
+//         message: 'Invalid phone number format'
+//       });
+//     }
+        
+//     // Find cart and populate activity data
+//     const cart = await Cart.findOne({ cartId })
+//       .populate('items.activity', 'name')
+//       .populate('items.deal', 'title')
+//       .session(session);
+        
+//     if (!cart) {
+//       await session.abortTransaction();
+//       session.endSession();
+//       return res.status(404).json({
+//         message: 'Cart not found'
+//       });
+//     }
+        
+//     // Check if cart is empty
+//     if (cart.items.length === 0) {
+//       await session.abortTransaction();
+//       session.endSession();
+//       return res.status(400).json({
+//         message: 'Cart is empty'
+//       });
+//     }
 
+//     // Create single booking for the entire cart
+   
+        
+//     const booking = new Booking({
+//       cart: cart._id, // Reference to the cart
+//       totalPrice: cart.totalAmount,
+//       email,
+//       phoneNumber,
+//       bookingReference: generateBookingReference(),
+//       status: BookingStatus.PENDING
+//     });
+            
+//     await booking.save({ session });
+   
+
+//     // Create Stripe checkout session
+//     const stripeSession = await stripe.checkout.sessions.create({
+//       line_items: cart.items.map(item => ({
+//         price_data: {
+//           currency: 'usd',
+//           product_data: {
+//             name: `${(item.activity as any).name}`,
+//             description: `Booking Date: ${item.bookingDate.toDateString()}, Adults: ${item.numberOfAdults}, Children: ${item.numberOfChildren}`
+//           },
+//           unit_amount: Math.round(item.subtotal * 100) // Convert to cents
+//         },
+//         quantity: 1
+//       })),
+//       mode: 'payment',
+//       shipping_address_collection: {
+//         allowed_countries: ['US', 'BR']
+//       },
+//       success_url: `${process.env.BASE_URL}/complete?session_id={CHECKOUT_SESSION_ID}&cart_id=${cartId}`,
+//       cancel_url: `${process.env.BASE_URL}/cancel?cart_id=${cartId}`,
+//       metadata: {
+//         cartId: cartId,
+//         email: email,
+//         phoneNumber: phoneNumber,
+//       }
+//     });
+        
+//     // DON'T clear the cart here - do it after successful payment
+//     // The cart should be cleared in the success webhook or completion handler
+//     // cart.items = [];
+//     // await cart.save({ session });
+        
+//     // Commit transaction
+//     await session.commitTransaction();
+        
+//     res.status(201).json({
+//       message: 'Checkout initiated successfully',
+//       booking:booking,
+//       totalAmount: cart.totalAmount,
+//       sessionId: req.query.sessionid,
+//       stripeSessionUrl: stripeSession.url,
+//       cartId: cartId
+//     });
+      
+//   } catch (error) {
+//     // Abort transaction on error
+//     await session.abortTransaction();
+//     handleError(res, error, 'Error during checkout');
+//   } finally {
+//     // End session
+//     session.endSession();
+//   }
+// };
 export const checkoutCart = async (req: Request, res: Response): Promise<any> => {
   const session = await mongoose.startSession();
-     
+  
   try {
     // Start transaction
     session.startTransaction();
-        
+    
     // Get cart ID (from params or session)
     let { cartId } = req.params;
     if (!cartId) {
       cartId = getOrCreateSessionId(req);
     }
-        
+    
     const { email, phoneNumber } = req.body;
-        
+    
     // Validate required fields
     if (!email || !phoneNumber) {
       return res.status(400).json({
         message: 'Email and phone number are required'
       });
     }
-        
+    
     // Validate email format
     const emailRegex = /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/;
     if (!emailRegex.test(email)) {
@@ -530,7 +658,7 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
         message: 'Invalid email format'
       });
     }
-        
+    
     // Validate phone number
     const phoneRegex = /^\+?[1-9]\d{1,14}$/;
     if (!phoneRegex.test(phoneNumber)) {
@@ -538,13 +666,13 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
         message: 'Invalid phone number format'
       });
     }
-        
+    
     // Find cart and populate activity data
     const cart = await Cart.findOne({ cartId })
       .populate('items.activity', 'name')
       .populate('items.deal', 'title')
       .session(session);
-        
+    
     if (!cart) {
       await session.abortTransaction();
       session.endSession();
@@ -552,7 +680,7 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
         message: 'Cart not found'
       });
     }
-        
+    
     // Check if cart is empty
     if (cart.items.length === 0) {
       await session.abortTransaction();
@@ -562,21 +690,34 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
       });
     }
 
+    // Create booking items from cart items
+    const bookingItems = cart.items.map(item => ({
+      activity: item.activity._id,
+      deal: item.deal._id,
+      bookingDate: item.bookingDate,
+      numberOfAdults: item.numberOfAdults,
+      numberOfChildren: item.numberOfChildren,
+      adultPrice: item.adultPrice,
+      childPrice: item.childPrice,
+      subtotal: item.subtotal,
+      // Store activity and deal names for easy reference
+      activityName: (item.activity as any).name,
+      dealTitle: (item.deal as any).title
+    }));
+
     // Create single booking for the entire cart
-   
-        
     const booking = new Booking({
       cart: cart._id, // Reference to the cart
+      items: bookingItems, // Store cart items in booking
       totalPrice: cart.totalAmount,
       email,
       phoneNumber,
       bookingReference: generateBookingReference(),
       status: BookingStatus.PENDING
     });
-            
+    
     await booking.save({ session });
-   
-
+    
     // Create Stripe checkout session
     const stripeSession = await stripe.checkout.sessions.create({
       line_items: cart.items.map(item => ({
@@ -602,24 +743,24 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
         phoneNumber: phoneNumber,
       }
     });
-        
+    
     // DON'T clear the cart here - do it after successful payment
     // The cart should be cleared in the success webhook or completion handler
     // cart.items = [];
     // await cart.save({ session });
-        
+    
     // Commit transaction
     await session.commitTransaction();
-        
+    
     res.status(201).json({
       message: 'Checkout initiated successfully',
-      booking:booking,
+      booking: booking,
       totalAmount: cart.totalAmount,
       sessionId: req.query.sessionid,
       stripeSessionUrl: stripeSession.url,
       cartId: cartId
     });
-      
+    
   } catch (error) {
     // Abort transaction on error
     await session.abortTransaction();
@@ -629,6 +770,7 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
     session.endSession();
   }
 };
+
 // Additional handlers for Stripe completion and cancellation
 // export const completeCheckout = async (req: Request, res: Response): Promise<any> => {
 //   try {
