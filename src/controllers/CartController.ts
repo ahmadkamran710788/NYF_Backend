@@ -7,7 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Booking, BookingStatus } from '../models/Booking';
 import Stripe from 'stripe';
 import dotenv from "dotenv";
-
+import {sendEmailOfBookNotification} from '../utils/EmailHelper'
 dotenv.config();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_51RRPYdQOenfjOskFL99L99A8JXnhiCi1rs5kytJos6UR8oc2XzaEq6mIsiH4zoTmyhmvrCGkEz1niezeit9MZlnI00nW5R4x0L');
 
@@ -759,6 +759,7 @@ export const completeCheckout = async (req: Request, res: Response): Promise<any
     //     phoneNumber: completedBooking?.phoneNumber
     //   }
     // });
+     await sendEmailOfBookNotification(completedBooking,stripeSession);
      res.redirect(`${process.env.REDIRCT_URL_SUCCESS}`);
 
   } catch (error) {
