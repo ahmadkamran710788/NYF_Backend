@@ -5,7 +5,11 @@ export enum BookingStatus {
   COMPLETED = "completed",
   REJECTED = "rejected"
 }
-
+export enum Title {
+  Mr = "Mr",
+  Mrs = "Mrs",
+  Ms = "Ms"
+}
 export interface IBooking extends Document {
   activity?: mongoose.Types.ObjectId; // Made optional
   deal?: mongoose.Types.ObjectId; // Made optional
@@ -18,6 +22,12 @@ export interface IBooking extends Document {
   phoneNumber?: string; // Made optional
   bookingReference: string;
   status: BookingStatus;
+  title: Title;
+  firstName: string;
+  lastName: string;
+  createdAt: Date;
+  updatedAt: Date;
+
 }
 
 const BookingSchema = new Schema({
@@ -122,7 +132,21 @@ const BookingSchema = new Schema({
     type: String, 
     enum: Object.values(BookingStatus),
     default: BookingStatus.PENDING 
-  }
+  },
+  title: { 
+    type: String, 
+    enum: Object.values(Title),
+  },
+  firstName: {
+    type: String,
+    required: [true, 'First name is required']
+  },
+  lastName: {
+    type: String,
+    required: [true, 'Last name is required']
+  },
+  
+  
 }, {
   timestamps: true
 });

@@ -642,7 +642,7 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
       cartId = getOrCreateSessionId(req);
     }
     
-    const { email, phoneNumber } = req.body;
+    const { email, phoneNumber,firstName,lastName,title  } = req.body;
     
     // Validate required fields
     if (!email || !phoneNumber) {
@@ -713,7 +713,10 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
       email,
       phoneNumber,
       bookingReference: generateBookingReference(),
-      status: BookingStatus.PENDING
+      status: BookingStatus.PENDING,
+      firstName,
+      lastName,
+      title
     });
     
     await booking.save({ session });
@@ -759,6 +762,7 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
       sessionId: req.query.sessionid,
       stripeSessionUrl: stripeSession.url,
       cartId: cartId
+      
     });
     
   } catch (error) {
