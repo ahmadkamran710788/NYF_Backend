@@ -1,4 +1,5 @@
 import axios from "axios";
+import { HolidayPackage } from "../models/HolidayPackage"; // Adjust import based on your Mongoose model
 
 export interface ExchangeRates {
   [currency: string]: number;
@@ -159,7 +160,7 @@ export const convertToUSD = async (amount: number, fromCurrency: string): Promis
   return Math.round((amount / rate) * 100) / 100;
 };
 
-// Helper function to get currency conversion rate
+// Get conversion rate
 export const getConversionRate = async (fromCurrency: string, toCurrency: string): Promise<number> => {
   if (fromCurrency === toCurrency) {
     return 1;
@@ -179,7 +180,6 @@ export const getConversionRate = async (fromCurrency: string, toCurrency: string
     return 1 / rate;
   }
   
-  // Convert via USD
   const fromRate = rates[fromCurrency.toUpperCase()];
   const toRate = rates[toCurrency.toUpperCase()];
   
@@ -202,12 +202,10 @@ const cleanObject = (obj: any): any => {
     const cleaned: any = {};
     
     for (const [key, value] of Object.entries(obj)) {
-      // Skip MongoDB/Mongoose internal properties
-      if (key.startsWith('$') || key.startsWith('_') && key !== '_id' || key === '__v') {
+      if (key.startsWith('$') || key === '__v') {
         continue;
       }
       
-      // Clean nested objects recursively
       cleaned[key] = cleanObject(value);
     }
     
@@ -220,21 +218,21 @@ const cleanObject = (obj: any): any => {
 // Clean activity data
 const cleanActivity = (activity: any, targetCurrency: string): CleanedActivity => {
   return {
-    _id: activity._id,
-    name: activity.name,
-    category: activity.category,
-    city: activity.city,
-    description: activity.description,
-    images: activity.images || [],
-    originalPrice: activity.originalPrice,
-    discountPrice: activity.discountPrice,
+    _id: activity._id?.toString() || '',
+    name: activity.name || '',
+    category: activity.category || '',
+    city: activity.city?.toString() || '',
+    description: activity.description || '',
+    images: Array.isArray(activity.images) ? activity.images : [],
+    originalPrice: activity.originalPrice || 0,
+    discountPrice: activity.discountPrice || 0,
     baseCurrency: targetCurrency.toUpperCase(),
-    duration: activity.duration,
-    includes: activity.includes || [],
-    highlights: activity.highlights || [],
-    isInstantConfirmation: activity.isInstantConfirmation,
-    isMobileTicket: activity.isMobileTicket,
-    isRefundable: activity.isRefundable,
+    duration: activity.duration || '',
+    includes: Array.isArray(activity.includes) ? activity.includes : [],
+    highlights: Array.isArray(activity.highlights) ? activity.highlights : [],
+    isInstantConfirmation: !!activity.isInstantConfirmation,
+    isMobileTicket: !!activity.isMobileTicket,
+    isRefundable: !!activity.isRefundable,
     ratings: activity.ratings || 0,
     reviewCount: activity.reviewCount || 0,
   };
@@ -243,11 +241,11 @@ const cleanActivity = (activity: any, targetCurrency: string): CleanedActivity =
 // Clean destination data
 const cleanDestination = (destination: any): CleanedDestination => {
   return {
-    _id: destination._id,
-    name: destination.name,
-    country: destination.country,
-    description: destination.description,
-    image: destination.image,
+    _id: destination._id?.toString() || '',
+    name: destination.name || '',
+    country: destination.country?.toString() || '',
+    description: destination.description || '',
+    image: destination.image || '',
   };
 };
 
@@ -294,17 +292,17 @@ export const convertPackageWithCleanResponse = async (
             let convertedActivityDiscountPrice: number;
 
             if (activitySourceCurrency === targetCurrency) {
-              convertedActivityOriginalPrice = activity.originalPrice;
-              convertedActivityDiscountPrice = activity.discountPrice;
+              convertedActivityOriginalPrice = activity.originalPrice || 0;
+              convertedActivityDiscountPrice = activity.discountPrice || 0;
             } else if (activitySourceCurrency === 'USD') {
-              convertedActivityOriginalPrice = await convertFromUSD(activity.originalPrice, targetCurrency);
-              convertedActivityDiscountPrice = await convertFromUSD(activity.discountPrice, targetCurrency);
+              convertedActivityOriginalPrice = await convertFromUSD(activity.originalPrice || 0, targetCurrency);
+              convertedActivityDiscountPrice = await convertFromUSD(activity.discountPrice || 0, targetCurrency);
             } else if (targetCurrency === 'USD') {
-              convertedActivityOriginalPrice = await convertToUSD(activity.originalPrice, activitySourceCurrency);
-              convertedActivityDiscountPrice = await convertToUSD(activity.discountPrice, activitySourceCurrency);
+              convertedActivityOriginalPrice = await convertToUSD(activity.originalPrice || 0, activitySourceCurrency);
+              convertedActivityDiscountPrice = await convertToUSD(activity.discountPrice || 0, activitySourceCurrency);
             } else {
-              const activityOriginalPriceInUSD = await convertToUSD(activity.originalPrice, activitySourceCurrency);
-              const activityDiscountPriceInUSD = await convertToUSD(activity.discountPrice, activitySourceCurrency);
+              const activityOriginalPriceInUSD = await convertToUSD(activity.originalPrice || 0, activitySourceCurrency);
+              const activityDiscountPriceInUSD = await convertToUSD(activity.discountPrice || 0, activitySourceCurrency);
               
               convertedActivityOriginalPrice = await convertFromUSD(activityOriginalPriceInUSD, targetCurrency);
               convertedActivityDiscountPrice = await convertFromUSD(activityDiscountPriceInUSD, targetCurrency);
@@ -320,44 +318,44 @@ export const convertPackageWithCleanResponse = async (
       }
 
       return {
-        day: dayItem.day,
-        title: dayItem.title,
-        description: dayItem.description,
+        day: dayItem.day || 0,
+        title: dayItem.title || '',
+        description: dayItem.description || '',
         activities: convertedActivities,
-        includedMeals: dayItem.includedMeals || [],
-        transport: dayItem.transport,
-        _id: dayItem._id,
+        includedMeals: Array.isArray(dayItem.includedMeals) ? dayItem.includedMeals : [],
+        transport: dayItem.transport || '',
+        _id: dayItem._id?.toString() || '',
       };
     })
   );
 
   return {
-    _id: holidayPackage._id,
-    name: holidayPackage.name,
-    type: holidayPackage.type,
-    destination: cleanDestination(holidayPackage.destination),
-    destinationType: holidayPackage.destinationType,
-    nights: holidayPackage.nights,
-    days: holidayPackage.days,
-    description: holidayPackage.description,
-    images: holidayPackage.images || [],
+    _id: holidayPackage._id?.toString() || '',
+    name: holidayPackage.name || '',
+    type: holidayPackage.type || '',
+    destination: cleanDestination(holidayPackage.destination || {}),
+    destinationType: holidayPackage.destinationType || '',
+    nights: holidayPackage.nights || 0,
+    days: holidayPackage.days || 0,
+    description: holidayPackage.description || '',
+    images: Array.isArray(holidayPackage.images) ? holidayPackage.images : [],
     originalPrice: convertedOriginalPrice,
     discountPrice: convertedDiscountPrice,
     baseCurrency: targetCurrency.toUpperCase(),
-    includes: holidayPackage.includes || [],
-    excludes: holidayPackage.excludes || [],
-    highlights: holidayPackage.highlights || [],
+    includes: Array.isArray(holidayPackage.includes) ? holidayPackage.includes : [],
+    excludes: Array.isArray(holidayPackage.excludes) ? holidayPackage.excludes : [],
+    highlights: Array.isArray(holidayPackage.highlights) ? holidayPackage.highlights : [],
     itinerary: convertedItinerary,
-    hotelStars: holidayPackage.hotelStars,
-    hasTransport: holidayPackage.hasTransport,
-    hasAccommodation: holidayPackage.hasAccommodation,
-    hasActivities: holidayPackage.hasActivities,
-    terms: holidayPackage.terms || [],
-    notes: holidayPackage.notes || [],
-    paymentPolicy: holidayPackage.paymentPolicy,
-    isRefundable: holidayPackage.isRefundable,
-    createdAt: holidayPackage.createdAt,
-    updatedAt: holidayPackage.updatedAt,
+    hotelStars: holidayPackage.hotelStars || 0,
+    hasTransport: !!holidayPackage.hasTransport,
+    hasAccommodation: !!holidayPackage.hasAccommodation,
+    hasActivities: !!holidayPackage.hasActivities,
+    terms: Array.isArray(holidayPackage.terms) ? holidayPackage.terms : [],
+    notes: Array.isArray(holidayPackage.notes) ? holidayPackage.notes : [],
+    paymentPolicy: holidayPackage.paymentPolicy || '',
+    isRefundable: !!holidayPackage.isRefundable,
+    createdAt: holidayPackage.createdAt ? new Date(holidayPackage.createdAt) : undefined,
+    updatedAt: holidayPackage.updatedAt ? new Date(holidayPackage.updatedAt) : undefined,
   };
 };
 
@@ -371,6 +369,7 @@ export const convertPackagesWithCleanResponse = async (
     const sourceCurrency = packages.length > 0 ? (packages[0].baseCurrency || 'USD') : 'USD';
     
     // Get conversion rate for currency info
+
     const conversionRate = await getConversionRate(sourceCurrency, targetCurrency);
     
     // Convert all packages
@@ -393,6 +392,9 @@ export const convertPackagesWithCleanResponse = async (
     throw error;
   }
 };
+
+// Updated API endpoint to ensure proper population
+
 
 // Helper function to get supported currencies
 export const getSupportedCurrencies = async (): Promise<string[]> => {

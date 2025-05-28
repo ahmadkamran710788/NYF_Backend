@@ -11,7 +11,8 @@ export const getAllPackages = async (req: Request, res: Response): Promise<void>
     const currency = req.query.currency as string || 'USD';
     
     const packages = await HolidayPackage.find().populate('destination').populate('itinerary.activities')
-    .exec();
+   .lean() // Convert to plain JavaScript object for easier manipulation
+      .exec();
     
     // Convert prices to requested currency
     const convertedPackages = await convertPackagesWithCleanResponse(packages, currency);
