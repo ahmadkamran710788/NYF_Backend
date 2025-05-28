@@ -5,11 +5,18 @@ import { uploadToCloudinary } from "../utils/CloudinaryHelper";
 import { City } from "../models/City";
 import { Country } from "../models/Country";
 // Get all holiday packages
+import { convertPackagesWithCleanResponse, convertPackageWithCleanResponse } from "../services/currencyExchangePackage";
 export const getAllPackages = async (req: Request, res: Response): Promise<void> => {
   try {
-    const packages = await HolidayPackage.find().populate('destination').populate('itinerary.activities') // Populating activities within each day's itinerary
+    const currency = req.query.currency as string || 'USD';
+    
+    const packages = await HolidayPackage.find().populate('destination').populate('itinerary.activities')
     .exec();
-    res.status(200).json({ success: true, data: packages });
+    
+    // Convert prices to requested currency
+    const convertedPackages = await convertPackagesWithCleanResponse(packages, currency);
+    
+    res.status(200).json({ success: true, data: convertedPackages });
   } catch (error) {
     res.status(500).json({ success: false, error: error });
   }
@@ -19,6 +26,7 @@ export const getAllPackages = async (req: Request, res: Response): Promise<void>
 export const getPackageById = async (req: Request, res: Response): Promise<void> => {
   try {
     const packageId = req.params.id;
+    const currency = req.query.currency as string || 'USD';
     
     if (!mongoose.Types.ObjectId.isValid(packageId)) {
       res.status(400).json({ success: false, error: "Invalid package ID format" });
@@ -37,7 +45,10 @@ export const getPackageById = async (req: Request, res: Response): Promise<void>
       return;
     }
     
-    res.status(200).json({ success: true, data: holidayPackage });
+    // Convert prices to requested currency
+    const convertedPackage = await convertPackageWithCleanResponse(holidayPackage, currency);
+    
+    res.status(200).json({ success: true, data: convertedPackage });
   } catch (error) {
     res.status(500).json({ success: false, error: error });
   }
@@ -218,10 +229,124 @@ export const deletePackage = async (req: Request, res: Response): Promise<void> 
 };
 
 // Get packages by destination
+// export const getPackagesByDestination = async (req: Request, res: Response): Promise<void> => {
+//     try {
+//       const destinationId = req.params.destinationId;
+//       const packageType = req.query.type as string;
+      
+//       if (!mongoose.Types.ObjectId.isValid(destinationId)) {
+//         res.status(400).json({ success: false, error: "Invalid destination ID format" });
+//         return;
+//       }
+      
+//       // Base query object
+//       const query: any = { destination: destinationId };
+      
+//       // Add type filter if provided in query
+//       if (packageType) {
+//         // Handle comma-separated types (e.g., type=holiday,honeymoon)
+//         const types = packageType.split(',');
+//         if (types.length > 1) {
+//           query.type = { $in: types };
+//         } else {
+//           query.type = packageType;
+//         }
+//       }
+      
+//       const packages = await HolidayPackage.find(query)
+//         .populate('destination')
+//         .populate({
+//           path: 'itinerary.activities',
+//           model: 'Activity'
+//         });
+      
+//       res.status(200).json({ 
+//         success: true, 
+//         count: packages.length,
+//         data: packages 
+//       });
+//     } catch (error: any) {
+//       res.status(500).json({ 
+//         success: false, 
+//         error: error.message || String(error) 
+//       });
+//     }
+//   };
+
+
+// export const getPackagesByDestinationName = async (req: Request, res: Response): Promise<void> => {
+//     try {
+//       const destinationName = req.params.destinationName;
+//       const packageType = req.query.type as string;
+      
+//       // Find the destination by name first
+//       var destination = await City.findOne({ 
+//         name: { $regex: new RegExp(destinationName, 'i') } 
+//       });
+//       if (!destination) {
+//         destination = await Country.findOne({
+//           name: { $regex: new RegExp(destinationName, 'i') }
+//         });
+//       }
+      
+//       if (!destination) {
+//         res.status(404).json({ success: false, error: "Destination not found" });
+//         return;
+//       }
+      
+//       // Base query object
+//       const query: any = { destination: destination._id };
+      
+//       // Add type filter if provided in query
+//       if (packageType) {
+//         // Handle comma-separated types (e.g., type=holiday,honeymoon)
+//         const types = packageType.split(',');
+//         if (types.length > 1) {
+//           query.type = { $in: types };
+//         } else {
+//           query.type = packageType;
+//         }
+//       }
+      
+//       const packages = await HolidayPackage.find(query)
+//         .populate('destination')
+//         .populate({
+//           path: 'itinerary.activities',
+//           model: 'Activity'
+//         });
+      
+//       res.status(200).json({
+//         success: true,
+//         count: packages.length,
+//         data: packages
+//       });
+//     } catch (error: any) {
+//       res.status(500).json({
+//         success: false,
+//         error: error.message || String(error)
+//       });
+//     }
+// };  
+
+// // Get packages by type
+// export const getPackagesByType = async (req: Request, res: Response): Promise<void> => {
+//   try {
+//     const type = req.params.type;
+//     const packages = await HolidayPackage.find({ type })
+//       .populate('destination');
+    
+//     res.status(200).json({ success: true, data: packages });
+//   } catch (error) {
+//     res.status(500).json({ success: false, error: error });
+//   }
+// };
+
+
 export const getPackagesByDestination = async (req: Request, res: Response): Promise<void> => {
     try {
       const destinationId = req.params.destinationId;
       const packageType = req.query.type as string;
+      const currency = req.query.currency as string || 'USD';
       
       if (!mongoose.Types.ObjectId.isValid(destinationId)) {
         res.status(400).json({ success: false, error: "Invalid destination ID format" });
@@ -249,10 +374,13 @@ export const getPackagesByDestination = async (req: Request, res: Response): Pro
           model: 'Activity'
         });
       
+      // Convert prices to requested currency
+      const convertedPackages = await convertPackagesWithCleanResponse(packages, currency);
+      
       res.status(200).json({ 
         success: true, 
-        count: packages.length,
-        data: packages 
+        
+        data: convertedPackages 
       });
     } catch (error: any) {
       res.status(500).json({ 
@@ -267,6 +395,7 @@ export const getPackagesByDestinationName = async (req: Request, res: Response):
     try {
       const destinationName = req.params.destinationName;
       const packageType = req.query.type as string;
+      const currency = req.query.currency as string || 'USD';
       
       // Find the destination by name first
       var destination = await City.findOne({ 
@@ -304,10 +433,13 @@ export const getPackagesByDestinationName = async (req: Request, res: Response):
           model: 'Activity'
         });
       
+      // Convert prices to requested currency
+      const convertedPackages = await convertPackagesWithCleanResponse(packages, currency);
+      
       res.status(200).json({
         success: true,
-        count: packages.length,
-        data: packages
+        
+        data: convertedPackages
       });
     } catch (error: any) {
       res.status(500).json({
@@ -321,10 +453,15 @@ export const getPackagesByDestinationName = async (req: Request, res: Response):
 export const getPackagesByType = async (req: Request, res: Response): Promise<void> => {
   try {
     const type = req.params.type;
+    const currency = req.query.currency as string || 'USD';
+    
     const packages = await HolidayPackage.find({ type })
       .populate('destination');
     
-    res.status(200).json({ success: true, data: packages });
+    // Convert prices to requested currency
+    const convertedPackages = await convertPackagesWithCleanResponse(packages, currency);
+    
+    res.status(200).json({ success: true, data: convertedPackages });
   } catch (error) {
     res.status(500).json({ success: false, error: error });
   }

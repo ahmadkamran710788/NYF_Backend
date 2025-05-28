@@ -6,6 +6,7 @@ import { Country } from "../models/Country";
 import { Continent } from "../models/Continent";
 import mongoose from "mongoose";
 import { uploadToCloudinary } from "../utils/CloudinaryHelper";
+import {convertActivities} from "../services/currencyService"
 // Helper function to build filter based on query params
 const buildActivityFilter = (query: any) => {
   const filter: any = {};
@@ -65,7 +66,10 @@ export const getAllActivities = async (
   try {
     // Basic filter from query parameters
     const filter = buildActivityFilter(req.query);
-    let { countryName, cityName, continentName } = req.query;
+    let { countryName, cityName, continentName, currency } = req.query;
+
+    // Get target currency (default to USD)
+    const targetCurrency = (currency as string) || 'USD';
 
     // Process comma-separated values for location parameters
     const countries = countryName ? String(countryName).split(',').filter(Boolean) : [];
@@ -159,6 +163,7 @@ export const getAllActivities = async (
           success: true,
           count: 0,
           data: [],
+          currency: targetCurrency.toUpperCase(),
           pagination: {
             totalItems: 0,
             totalPages: 0,
@@ -192,6 +197,9 @@ export const getAllActivities = async (
       .limit(limit)
       .lean(); // Using lean() for better performance on read-only data
 
+    // Convert activities to target currency
+    const convertedActivities = await convertActivities(activities, targetCurrency);
+
     // Calculate pagination metadata
     const totalPages = Math.ceil(totalActivities / limit);
     const hasNextPage = page < totalPages;
@@ -199,8 +207,9 @@ export const getAllActivities = async (
 
     return res.status(200).json({
       success: true,
-      count: activities.length,
-      data: activities,
+      count: convertedActivities.length,
+      data: convertedActivities,
+      currency: targetCurrency.toUpperCase(),
       pagination: {
         totalItems: totalActivities,
         totalPages,
@@ -227,7 +236,10 @@ export const getActivitiesWithoutPagination = async (
   try {
     // Basic filter from query parameters
     const filter = buildActivityFilter(req.query);
-    let { countryName, cityName, continentName } = req.query;
+    let { countryName, cityName, continentName, currency } = req.query;
+
+    // Get target currency (default to USD)
+    const targetCurrency = (currency as string) || 'USD';
 
     // Process comma-separated values for location parameters
     const countries = countryName ? String(countryName).split(',').filter(Boolean) : [];
@@ -316,6 +328,7 @@ export const getActivitiesWithoutPagination = async (
           success: true,
           count: 0,
           data: [],
+          currency: targetCurrency.toUpperCase(),
         });
       }
     }
@@ -336,10 +349,14 @@ export const getActivitiesWithoutPagination = async (
       })
       .lean(); // Using lean() for better performance on read-only data
 
+    // Convert activities to target currency
+    const convertedActivities = await convertActivities(activities, targetCurrency);
+
     return res.status(200).json({
       success: true,
-      count: activities.length,
-      data: activities,
+      count: convertedActivities.length,
+      data: convertedActivities,
+      currency: targetCurrency.toUpperCase(),
     });
   } catch (error: any) {
     console.error("Error in getActivitiesWithoutPagination:", error);
@@ -354,23 +371,31 @@ export const getActivitiesWithoutPagination = async (
 export const getActivitiesByCity = async (req: Request, res: Response) => {
   try {
     const { cityId } = req.params;
+    const { currency } = req.query;
     const filter = buildActivityFilter(req.query);
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
     const skip = (page - 1) * limit;
+    
+    // Get target currency (default to USD)
+    const targetCurrency = (currency as string) || 'USD';
+    
     // Add city filter
     filter.city = new mongoose.Types.ObjectId(cityId);
 
-    const activities = await Activity.find(filter).skip(skip).limit(limit);
-
+    const activities = await Activity.find(filter).skip(skip).limit(limit).lean();
     const total = await Activity.countDocuments(filter);
+
+    // Convert activities to target currency
+    const convertedActivities = await convertActivities(activities, targetCurrency);
 
     res.status(200).json({
       success: true,
-      count: activities.length,
+      count: convertedActivities.length,
       totalPages: Math.ceil(total / limit),
       currentPage: page,
-      data: activities,
+      currency: targetCurrency.toUpperCase(),
+      data: convertedActivities,
     });
   } catch (error: any) {
     res.status(500).json({
@@ -381,14 +406,19 @@ export const getActivitiesByCity = async (req: Request, res: Response) => {
   }
 };
 
+
 // Get activities by country with filtering
 export const getActivitiesByCountry = async (req: Request, res: Response) => {
   try {
     const { countryId } = req.params;
+    const { currency } = req.query;
     const filter = buildActivityFilter(req.query);
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
     const skip = (page - 1) * limit;
+
+    // Get target currency (default to USD)
+    const targetCurrency = (currency as string) || 'USD';
 
     // Get all cities for this country
     const cities = await City.find({ country: countryId });
@@ -400,15 +430,20 @@ export const getActivitiesByCountry = async (req: Request, res: Response) => {
     const activities = await Activity.find(filter)
       .skip(skip)
       .limit(limit)
-      .populate("city", "name");
+      .populate("city", "name")
+      .lean();
     const total = await Activity.countDocuments(filter);
+
+    // Convert activities to target currency
+    const convertedActivities = await convertActivities(activities, targetCurrency);
 
     res.status(200).json({
       success: true,
-      count: activities.length,
+      count: convertedActivities.length,
       totalPages: Math.ceil(total / limit),
       currentPage: page,
-      data: activities,
+      currency: targetCurrency.toUpperCase(),
+      data: convertedActivities,
     });
   } catch (error: any) {
     res.status(500).json({
@@ -419,14 +454,20 @@ export const getActivitiesByCountry = async (req: Request, res: Response) => {
   }
 };
 
+
 // Get activities by continent with filtering
 export const getActivitiesByContinent = async (req: Request, res: Response) => {
   try {
     const { continentId } = req.params;
+    const { currency } = req.query;
     const filter = buildActivityFilter(req.query);
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
     const skip = (page - 1) * limit;
+    
+    // Get target currency (default to USD)
+    const targetCurrency = (currency as string) || 'USD';
+    
     // Get countries in this continent
     const countries = await Country.find({ continent: continentId });
 
@@ -448,14 +489,20 @@ export const getActivitiesByContinent = async (req: Request, res: Response) => {
           path: "country",
           select: "name",
         },
-      });
+      })
+      .lean();
     const total = await Activity.countDocuments(filter);
+
+    // Convert activities to target currency
+    const convertedActivities = await convertActivities(activities, targetCurrency);
+    
     res.status(200).json({
       success: true,
-      count: activities.length,
+      count: convertedActivities.length,
       totalPages: Math.ceil(total / limit),
       currentPage: page,
-      data: activities,
+      currency: targetCurrency.toUpperCase(),
+      data: convertedActivities,
     });
   } catch (error: any) {
     res.status(500).json({
@@ -466,6 +513,7 @@ export const getActivitiesByContinent = async (req: Request, res: Response) => {
   }
 };
 
+
 // Get activities by category with filtering
 export const getActivitiesByCategory = async (
   req: Request,
@@ -473,12 +521,16 @@ export const getActivitiesByCategory = async (
 ): Promise<any> => {
   try {
     const { category } = req.params;
+    const { currency } = req.query;
     const filter = buildActivityFilter(req.query);
 
     // Pagination parameters
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
     const skip = (page - 1) * limit;
+
+    // Get target currency (default to USD)
+    const targetCurrency = (currency as string) || 'USD';
 
     // Validate category
     if (
@@ -507,16 +559,21 @@ export const getActivitiesByCategory = async (
             select: "name",
           },
         },
-      });
+      })
+      .lean();
 
     const total = await Activity.countDocuments(filter);
 
+    // Convert activities to target currency
+    const convertedActivities = await convertActivities(activities, targetCurrency);
+
     res.status(200).json({
       success: true,
-      count: activities.length,
+      count: convertedActivities.length,
       totalPages: Math.ceil(total / limit),
       currentPage: page,
-      data: activities,
+      currency: targetCurrency.toUpperCase(),
+      data: convertedActivities,
     });
   } catch (error: any) {
     res.status(500).json({
@@ -699,7 +756,7 @@ export const addActivity = async (
       }
     }
 
-    // Create new activity
+    // Create new activity (prices stored in USD)
     const activity = new Activity({
       name,
       category,
@@ -714,6 +771,7 @@ export const addActivity = async (
       isInstantConfirmation,
       isMobileTicket,
       isRefundable,
+      baseCurrency: 'USD', // Always store in USD
     });
 
     await activity.save();

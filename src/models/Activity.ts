@@ -1,4 +1,9 @@
+
+
+
 import mongoose, { Schema, Document } from "mongoose";
+import axios from "axios";
+
 export enum ActivityCategory {
   DESERT_SAFARI = "desert safari",
   DHOW_CRUISE = "dhow cruise",
@@ -19,8 +24,9 @@ export interface IActivity extends Document {
   city: mongoose.Types.ObjectId;
   description: string;
   images: string[];
-  originalPrice: number;
-  discountPrice: number;
+  originalPrice: number; // Always stored in USD
+  discountPrice: number; // Always stored in USD
+  baseCurrency: string; // Always "USD" for storage
   duration: string;
   includes: string[];
   highlights: string[];
@@ -41,8 +47,9 @@ const ActivitySchema = new Schema({
   city: { type: Schema.Types.ObjectId, ref: "City", required: true },
   description: { type: String, required: true },
   images: [{ type: String }],
-  originalPrice: { type: Number, required: true },
-  discountPrice: { type: Number, required: true },
+  originalPrice: { type: Number, required: true }, // Stored in USD
+  discountPrice: { type: Number, required: true }, // Stored in USD
+  baseCurrency: { type: String, default: "USD" }, // Always USD for storage
   duration: { type: String },
   includes: [{ type: String }],
   highlights: [{ type: String }],

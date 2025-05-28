@@ -113,6 +113,7 @@ export interface IHolidayPackage extends Document {
   images: string[];
   originalPrice: number;
   discountPrice: number;
+  baseCurrency: string;
   includes: string[];
   excludes: string[];
   highlights: string[];
@@ -161,6 +162,7 @@ const HolidayPackageSchema = new Schema({
   images: [{ type: String, required: false }],
   originalPrice: { type: Number, required: true },
   discountPrice: { type: Number, required: true },
+  baseCurrency: { type: String, default: "USD" },
   includes: [{ type: String }],
   excludes: [{ type: String }],
   highlights: [{ type: String }],
