@@ -17,7 +17,7 @@ export const getAllPackages = async (req: Request, res: Response): Promise<void>
     // Convert prices to requested currency
     const convertedPackages = await convertPackagesWithCleanResponse(packages, currency);
     
-    res.status(200).json({ success: true, data: convertedPackages });
+    res.status(200).json( convertedPackages );
   } catch (error) {
     res.status(500).json({ success: false, error: error });
   }

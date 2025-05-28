@@ -75,12 +75,12 @@ export interface CleanedHolidayPackage {
 export interface CurrencyConversionResponse {
   success: boolean;
   data: CleanedHolidayPackage[];
-  currencyInfo: {
-    sourceCurrency: string;
-    targetCurrency: string;
-    conversionRate: number;
-    lastUpdated: Date;
-  };
+  // currencyInfo: {
+  //   sourceCurrency: string;
+  //   targetCurrency: string;
+  //   conversionRate: number;
+  //   lastUpdated: Date;
+  // };
 }
 
 // In-memory cache for exchange rates
@@ -379,13 +379,7 @@ export const convertPackagesWithCleanResponse = async (
 
     return {
       success: true,
-      data: convertedPackages,
-      currencyInfo: {
-        sourceCurrency: sourceCurrency.toUpperCase(),
-        targetCurrency: targetCurrency.toUpperCase(),
-        conversionRate: conversionRate,
-        lastUpdated: lastUpdated || new Date(),
-      },
+      data: convertedPackages
     };
   } catch (error) {
     console.error('Error converting packages:', error);
