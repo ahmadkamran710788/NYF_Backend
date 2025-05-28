@@ -356,7 +356,7 @@ export const getActivitiesWithoutPagination = async (
       success: true,
       count: convertedActivities.length,
       data: convertedActivities,
-      currency: targetCurrency.toUpperCase(),
+      // currency: targetCurrency.toUpperCase(),
     });
   } catch (error: any) {
     console.error("Error in getActivitiesWithoutPagination:", error);
