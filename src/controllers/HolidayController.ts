@@ -437,11 +437,9 @@ export const getPackagesByDestinationName = async (req: Request, res: Response):
       // Convert prices to requested currency
       const convertedPackages = await convertPackagesWithCleanResponse(packages, currency);
       
-      res.status(200).json({
-        success: true,
-        
-        data: convertedPackages
-      });
+      res.status(200).json(
+        convertedPackages
+      );
     } catch (error: any) {
       res.status(500).json({
         success: false,
