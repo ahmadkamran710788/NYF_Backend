@@ -251,28 +251,30 @@ const cleanDestination = (destination: any): CleanedDestination => {
 
 // Convert a single holiday package to target currency with cleaned response
 export const convertPackageWithCleanResponse = async (
-  holidayPackage: any, 
+  holidayPackage: any,
   targetCurrency: string
 ): Promise<CleanedHolidayPackage> => {
-  const sourceCurrency = holidayPackage.baseCurrency || 'USD';
-  
+  // Convert Mongoose document to plain object
+  const packageObject = holidayPackage.toObject ? holidayPackage.toObject() : holidayPackage;
+
+  const sourceCurrency = packageObject.baseCurrency || 'USD';
+
   let convertedOriginalPrice: number;
   let convertedDiscountPrice: number;
 
   if (sourceCurrency === targetCurrency) {
-    convertedOriginalPrice = holidayPackage.originalPrice;
-    convertedDiscountPrice = holidayPackage.discountPrice;
+    convertedOriginalPrice = packageObject.originalPrice;
+    convertedDiscountPrice = packageObject.discountPrice;
   } else {
     if (sourceCurrency === 'USD') {
-      convertedOriginalPrice = await convertFromUSD(holidayPackage.originalPrice, targetCurrency);
-      convertedDiscountPrice = await convertFromUSD(holidayPackage.discountPrice, targetCurrency);
+      convertedOriginalPrice = await convertFromUSD(packageObject.originalPrice, targetCurrency);
+      convertedDiscountPrice = await convertFromUSD(packageObject.discountPrice, targetCurrency);
     } else if (targetCurrency === 'USD') {
-      convertedOriginalPrice = await convertToUSD(holidayPackage.originalPrice, sourceCurrency);
-      convertedDiscountPrice = await convertToUSD(holidayPackage.discountPrice, sourceCurrency);
+      convertedOriginalPrice = await convertToUSD(packageObject.originalPrice, sourceCurrency);
+      convertedDiscountPrice = await convertToUSD(packageObject.discountPrice, sourceCurrency);
     } else {
-      const originalPriceInUSD = await convertToUSD(holidayPackage.originalPrice, sourceCurrency);
-      const discountPriceInUSD = await convertToUSD(holidayPackage.discountPrice, sourceCurrency);
-      
+      const originalPriceInUSD = await convertToUSD(packageObject.originalPrice, sourceCurrency);
+      const discountPriceInUSD = await convertToUSD(packageObject.discountPrice, sourceCurrency);
       convertedOriginalPrice = await convertFromUSD(originalPriceInUSD, targetCurrency);
       convertedDiscountPrice = await convertFromUSD(discountPriceInUSD, targetCurrency);
     }
@@ -280,39 +282,67 @@ export const convertPackageWithCleanResponse = async (
 
   // Convert activities within itinerary
   const convertedItinerary: CleanedItineraryDay[] = await Promise.all(
-    (holidayPackage.itinerary || []).map(async (dayItem: any) => {
+    (packageObject.itinerary || []).map(async (dayItem: any) => {
       let convertedActivities: CleanedActivity[] = [];
-      
+
       if (dayItem.activities && Array.isArray(dayItem.activities)) {
         convertedActivities = await Promise.all(
           dayItem.activities.map(async (activity: any) => {
-            const activitySourceCurrency = activity.baseCurrency || 'USD';
-            
+            // Convert activity to plain object if it's a Mongoose document
+            const activityObject = activity.toObject ? activity.toObject() : activity;
+            const activitySourceCurrency = activityObject.baseCurrency || 'USD';
+
             let convertedActivityOriginalPrice: number;
             let convertedActivityDiscountPrice: number;
 
             if (activitySourceCurrency === targetCurrency) {
-              convertedActivityOriginalPrice = activity.originalPrice || 0;
-              convertedActivityDiscountPrice = activity.discountPrice || 0;
+              convertedActivityOriginalPrice = activityObject.originalPrice || 0;
+              convertedActivityDiscountPrice = activityObject.discountPrice || 0;
             } else if (activitySourceCurrency === 'USD') {
-              convertedActivityOriginalPrice = await convertFromUSD(activity.originalPrice || 0, targetCurrency);
-              convertedActivityDiscountPrice = await convertFromUSD(activity.discountPrice || 0, targetCurrency);
+              convertedActivityOriginalPrice = await convertFromUSD(
+                activityObject.originalPrice || 0,
+                targetCurrency
+              );
+              convertedActivityDiscountPrice = await convertFromUSD(
+                activityObject.discountPrice || 0,
+                targetCurrency
+              );
             } else if (targetCurrency === 'USD') {
-              convertedActivityOriginalPrice = await convertToUSD(activity.originalPrice || 0, activitySourceCurrency);
-              convertedActivityDiscountPrice = await convertToUSD(activity.discountPrice || 0, activitySourceCurrency);
+              convertedActivityOriginalPrice = await convertToUSD(
+                activityObject.originalPrice || 0,
+                activitySourceCurrency
+              );
+              convertedActivityDiscountPrice = await convertToUSD(
+                activityObject.discountPrice || 0,
+                activitySourceCurrency
+              );
             } else {
-              const activityOriginalPriceInUSD = await convertToUSD(activity.originalPrice || 0, activitySourceCurrency);
-              const activityDiscountPriceInUSD = await convertToUSD(activity.discountPrice || 0, activitySourceCurrency);
-              
-              convertedActivityOriginalPrice = await convertFromUSD(activityOriginalPriceInUSD, targetCurrency);
-              convertedActivityDiscountPrice = await convertFromUSD(activityDiscountPriceInUSD, targetCurrency);
+              const activityOriginalPriceInUSD = await convertToUSD(
+                activityObject.originalPrice || 0,
+                activitySourceCurrency
+              );
+              const activityDiscountPriceInUSD = await convertToUSD(
+                activityObject.discountPrice || 0,
+                activitySourceCurrency
+              );
+              convertedActivityOriginalPrice = await convertFromUSD(
+                activityOriginalPriceInUSD,
+                targetCurrency
+              );
+              convertedActivityDiscountPrice = await convertFromUSD(
+                activityDiscountPriceInUSD,
+                targetCurrency
+              );
             }
 
-            return cleanActivity({
-              ...activity,
-              originalPrice: convertedActivityOriginalPrice,
-              discountPrice: convertedActivityDiscountPrice,
-            }, targetCurrency);
+            return cleanActivity(
+              {
+                ...activityObject,
+                originalPrice: convertedActivityOriginalPrice,
+                discountPrice: convertedActivityDiscountPrice,
+              },
+              targetCurrency
+            );
           })
         );
       }
@@ -330,32 +360,32 @@ export const convertPackageWithCleanResponse = async (
   );
 
   return {
-    _id: holidayPackage._id?.toString() || '',
-    name: holidayPackage.name || '',
-    type: holidayPackage.type || '',
-    destination: cleanDestination(holidayPackage.destination || {}),
-    destinationType: holidayPackage.destinationType || '',
-    nights: holidayPackage.nights || 0,
-    days: holidayPackage.days || 0,
-    description: holidayPackage.description || '',
-    images: Array.isArray(holidayPackage.images) ? holidayPackage.images : [],
+    _id: packageObject._id?.toString() || '',
+    name: packageObject.name || '',
+    type: packageObject.type || '',
+    destination: cleanDestination(packageObject.destination || {}),
+    destinationType: packageObject.destinationType || '',
+    nights: packageObject.nights || 0,
+    days: packageObject.days || 0,
+    description: packageObject.description || '',
+    images: Array.isArray(packageObject.images) ? packageObject.images : [],
     originalPrice: convertedOriginalPrice,
     discountPrice: convertedDiscountPrice,
     baseCurrency: targetCurrency.toUpperCase(),
-    includes: Array.isArray(holidayPackage.includes) ? holidayPackage.includes : [],
-    excludes: Array.isArray(holidayPackage.excludes) ? holidayPackage.excludes : [],
-    highlights: Array.isArray(holidayPackage.highlights) ? holidayPackage.highlights : [],
+    includes: Array.isArray(packageObject.includes) ? packageObject.includes : [],
+    excludes: Array.isArray(packageObject.excludes) ? packageObject.excludes : [],
+    highlights: Array.isArray(packageObject.highlights) ? packageObject.highlights : [],
     itinerary: convertedItinerary,
-    hotelStars: holidayPackage.hotelStars || 0,
-    hasTransport: !!holidayPackage.hasTransport,
-    hasAccommodation: !!holidayPackage.hasAccommodation,
-    hasActivities: !!holidayPackage.hasActivities,
-    terms: Array.isArray(holidayPackage.terms) ? holidayPackage.terms : [],
-    notes: Array.isArray(holidayPackage.notes) ? holidayPackage.notes : [],
-    paymentPolicy: holidayPackage.paymentPolicy || '',
-    isRefundable: !!holidayPackage.isRefundable,
-    createdAt: holidayPackage.createdAt ? new Date(holidayPackage.createdAt) : undefined,
-    updatedAt: holidayPackage.updatedAt ? new Date(holidayPackage.updatedAt) : undefined,
+    hotelStars: packageObject.hotelStars || 0,
+    hasTransport: !!packageObject.hasTransport,
+    hasAccommodation: !!packageObject.hasAccommodation,
+    hasActivities: !!packageObject.hasActivities,
+    terms: Array.isArray(packageObject.terms) ? packageObject.terms : [],
+    notes: Array.isArray(packageObject.notes) ? packageObject.notes : [],
+    paymentPolicy: packageObject.paymentPolicy || '',
+    isRefundable: !!packageObject.isRefundable,
+    createdAt: packageObject.createdAt ? new Date(packageObject.createdAt) : undefined,
+    updatedAt: packageObject.updatedAt ? new Date(packageObject.updatedAt) : undefined,
   };
 };
 
