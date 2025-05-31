@@ -7,7 +7,15 @@ import { v4 as uuidv4 } from 'uuid';
 import { Booking, BookingStatus } from '../models/Booking';
 import Stripe from 'stripe';
 import dotenv from "dotenv";
-import {sendEmailOfBookNotification} from '../utils/EmailHelper'
+import { sendEmailOfBookNotification } from '../utils/EmailHelper';
+import { 
+  convertCartCurrency, 
+  convertCartWithCleanResponse, 
+  isValidCurrency, 
+  getSupportedCurrencies,
+  formatPrice 
+} from '../services/currencyExchangeCart';
+
 dotenv.config();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_51RRPYdQOenfjOskFL99L99A8JXnhiCi1rs5kytJos6UR8oc2XzaEq6mIsiH4zoTmyhmvrCGkEz1niezeit9MZlnI00nW5R4x0L');
 
@@ -50,6 +58,7 @@ export const getOrCreateCart = async (req: Request, res: Response): Promise<any>
   try {
     const sessionId = getOrCreateSessionId(req);
     let { cartId } = req.params;
+    const { currency } = req.query;
 
     // Default to sessionId if no cartId is provided
     cartId = cartId || sessionId;
@@ -68,11 +77,45 @@ export const getOrCreateCart = async (req: Request, res: Response): Promise<any>
 
       await newCart.save();
 
+      // If currency is requested and different from USD, convert the response
+      if (currency && currency !== 'USD') {
+        if (await isValidCurrency(currency as string)) {
+          const convertedCart = await convertCartWithCleanResponse(newCart, currency as string);
+          return res.status(201).json({
+            message: 'New cart created',
+            cart: convertedCart,
+            sessionId,
+          });
+        } else {
+          return res.status(400).json({
+            message: 'Invalid currency code',
+            supportedCurrencies: await getSupportedCurrencies(),
+          });
+        }
+      }
+
       return res.status(201).json({
         message: 'New cart created',
         cart: newCart,
         sessionId,
       });
+    }
+
+    // If currency is requested and different from USD, convert the response
+    if (currency && currency !== 'USD') {
+      if (await isValidCurrency(currency as string)) {
+        const convertedCart = await convertCartWithCleanResponse(cart, currency as string);
+        return res.status(200).json({
+          message: 'Cart retrieved successfully',
+          cart: convertedCart,
+          sessionId,
+        });
+      } else {
+        return res.status(400).json({
+          message: 'Invalid currency code',
+          supportedCurrencies: await getSupportedCurrencies(),
+        });
+      }
     }
 
     res.status(200).json({
@@ -83,6 +126,44 @@ export const getOrCreateCart = async (req: Request, res: Response): Promise<any>
 
   } catch (error) {
     handleError(res, error, 'Error retrieving cart');
+  }
+};
+
+/**
+ * Get cart with currency conversion
+ * @param req Express request object
+ * @param res Express response object
+ */
+export const getCartWithCurrency = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { cartId } = req.params;
+    const { currency = 'USD' } = req.query;
+
+    if (!cartId) {
+      return res.status(400).json({ message: 'Cart ID is required' });
+    }
+
+    // Validate currency
+    if (!(await isValidCurrency(currency as string))) {
+      return res.status(400).json({
+        message: 'Invalid currency code',
+        supportedCurrencies: await getSupportedCurrencies(),
+      });
+    }
+
+    const result = await convertCartCurrency(cartId, currency as string);
+
+    if (!result.success) {
+      return res.status(404).json({ message: 'Cart not found' });
+    }
+
+    res.status(200).json({
+      message: 'Cart retrieved with currency conversion',
+      ...result,
+    });
+
+  } catch (error) {
+    handleError(res, error, 'Error retrieving cart with currency conversion');
   }
 };
 
@@ -100,6 +181,7 @@ export const addItemToCart = async (req: Request, res: Response): Promise<any> =
     }
 
     const { activity, deal, bookingDate, numberOfAdults, numberOfChildren } = req.body;
+    const { currency } = req.query;
 
     // Validate input
     if (!cartId || !activity || !deal || !bookingDate) {
@@ -171,6 +253,23 @@ export const addItemToCart = async (req: Request, res: Response): Promise<any> =
         .populate('items.activity', 'name category images')
         .populate('items.deal', 'title description');
 
+      // If currency is requested and different from USD, convert the response
+      if (currency && currency !== 'USD') {
+        if (await isValidCurrency(currency as string)) {
+          const convertedCart = await convertCartWithCleanResponse(savedCart!, currency as string);
+          return res.status(200).json({
+            message: 'Cart not found, created new cart with item',
+            cart: convertedCart,
+            sessionId: req.query.sessionid
+          });
+        } else {
+          return res.status(400).json({
+            message: 'Invalid currency code',
+            supportedCurrencies: await getSupportedCurrencies(),
+          });
+        }
+      }
+
       return res.status(200).json({
         message: 'Cart not found, created new cart with item',
         cart: savedCart,
@@ -205,6 +304,23 @@ export const addItemToCart = async (req: Request, res: Response): Promise<any> =
       .populate('items.activity', 'name category images')
       .populate('items.deal', 'title description');
 
+    // If currency is requested and different from USD, convert the response
+    if (currency && currency !== 'USD') {
+      if (await isValidCurrency(currency as string)) {
+        const convertedCart = await convertCartWithCleanResponse(updatedCart!, currency as string);
+        return res.status(200).json({
+          message: 'Item added to cart successfully',
+          cart: convertedCart,
+          sessionId: req.query.sessionid
+        });
+      } else {
+        return res.status(400).json({
+          message: 'Invalid currency code',
+          supportedCurrencies: await getSupportedCurrencies(),
+        });
+      }
+    }
+
     res.status(200).json({
       message: 'Item added to cart successfully',
       cart: updatedCart,
@@ -216,8 +332,6 @@ export const addItemToCart = async (req: Request, res: Response): Promise<any> =
     handleError(res, error, 'Error adding item to cart');
   }
 };
-
-
 
 /**
  * Remove item from cart
@@ -231,7 +345,8 @@ export const removeItemFromCart = async (req: Request, res: Response): Promise<a
     if (!cartId) {
       cartId = getOrCreateSessionId(req);
     }
-    
+
+    const { currency } = req.query;
     const index = parseInt(itemIndex, 10);
     
     // Validate index
@@ -268,6 +383,23 @@ export const removeItemFromCart = async (req: Request, res: Response): Promise<a
     const updatedCart = await Cart.findOne({ cartId })
       .populate('items.activity', 'name category images')
       .populate('items.deal', 'title description');
+
+    // If currency is requested and different from USD, convert the response
+    if (currency && currency !== 'USD') {
+      if (await isValidCurrency(currency as string)) {
+        const convertedCart = await convertCartWithCleanResponse(updatedCart!, currency as string);
+        return res.status(200).json({
+          message: 'Item removed from cart successfully',
+          cart: convertedCart,
+          sessionId: req.query.sessionid
+        });
+      } else {
+        return res.status(400).json({
+          message: 'Invalid currency code',
+          supportedCurrencies: await getSupportedCurrencies(),
+        });
+      }
+    }
     
     res.status(200).json({
       message: 'Item removed from cart successfully',
@@ -294,6 +426,7 @@ export const updateCartItem = async (req: Request, res: Response): Promise<any> 
     }
     
     const { numberOfAdults, numberOfChildren } = req.body;
+    const { currency } = req.query;
     const index = parseInt(itemIndex, 10);
     
     // Validate index
@@ -341,6 +474,23 @@ export const updateCartItem = async (req: Request, res: Response): Promise<any> 
     const updatedCart = await Cart.findOne({ cartId })
       .populate('items.activity', 'name category images')
       .populate('items.deal', 'title description');
+
+    // If currency is requested and different from USD, convert the response
+    if (currency && currency !== 'USD') {
+      if (await isValidCurrency(currency as string)) {
+        const convertedCart = await convertCartWithCleanResponse(updatedCart!, currency as string);
+        return res.status(200).json({
+          message: 'Cart item updated successfully',
+          cart: convertedCart,
+          sessionId: req.query.sessionid
+        });
+      } else {
+        return res.status(400).json({
+          message: 'Invalid currency code',
+          supportedCurrencies: await getSupportedCurrencies(),
+        });
+      }
+    }
     
     res.status(200).json({
       message: 'Cart item updated successfully',
@@ -357,7 +507,9 @@ export const updateCartItem = async (req: Request, res: Response): Promise<any> 
  * Clear cart
  * @param req Express request object
  * @param res Express response object
+ * 
  */
+
 export const clearCart = async (req: Request, res: Response): Promise<any> => {
   try {
     // Get cart ID (from params or session)
@@ -365,6 +517,8 @@ export const clearCart = async (req: Request, res: Response): Promise<any> => {
     if (!cartId) {
       cartId = getOrCreateSessionId(req);
     }
+    
+    const { currency } = req.query;
     
     // Find cart
     const cart = await Cart.findOne({ cartId });
@@ -375,16 +529,39 @@ export const clearCart = async (req: Request, res: Response): Promise<any> => {
       });
     }
     
-    // Clear items
+    // Clear items and reset total amount
     cart.items = [];
+    cart.totalAmount = 0;
     
     // Reset expiry and save cart
     cart.expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours from now
     await cart.save();
+
+    // Get the updated cart with populated fields
+    const updatedCart = await Cart.findOne({ cartId })
+      .populate('items.activity', 'name category images')
+      .populate('items.deal', 'title description');
+    
+    // If currency is requested and different from USD, convert the response
+    if (currency && currency !== 'USD') {
+      if (await isValidCurrency(currency as string)) {
+        const convertedCart = await convertCartWithCleanResponse(updatedCart!, currency as string);
+        return res.status(200).json({
+          message: 'Cart cleared successfully',
+          cart: convertedCart,
+          sessionId: req.query.sessionid
+        });
+      } else {
+        return res.status(400).json({
+          message: 'Invalid currency code',
+          supportedCurrencies: await getSupportedCurrencies(),
+        });
+      }
+    }
     
     res.status(200).json({
       message: 'Cart cleared successfully',
-      cart,
+      cart: updatedCart,
       sessionId: req.query.sessionid
     });
     
@@ -393,242 +570,6 @@ export const clearCart = async (req: Request, res: Response): Promise<any> => {
   }
 };
 
-/**
- * Checkout cart and create bookings
- * @param req Express request object
- * @param res Express response object
- */
-// export const checkoutCart = async (req: Request, res: Response): Promise<any> => {
-//   const session = await mongoose.startSession();
-  
-//   try {
-//     // Start transaction
-//     session.startTransaction();
-    
-//     // Get cart ID (from params or session)
-//     let { cartId } = req.params;
-//     if (!cartId) {
-//       cartId = getOrCreateSessionId(req);
-//     }
-    
-//     const { email, phoneNumber } = req.body;
-    
-//     // Validate required fields
-//     if (!email || !phoneNumber) {
-//       return res.status(400).json({ 
-//         message: 'Email and phone number are required' 
-//       });
-//     }
-    
-//     // Validate email format
-//     const emailRegex = /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/;
-//     if (!emailRegex.test(email)) {
-//       return res.status(400).json({ 
-//         message: 'Invalid email format' 
-//       });
-//     }
-    
-//     // Validate phone number
-//     const phoneRegex = /^\+?[1-9]\d{1,14}$/;
-//     if (!phoneRegex.test(phoneNumber)) {
-//       return res.status(400).json({ 
-//         message: 'Invalid phone number format' 
-//       });
-//     }
-    
-//     // Find cart
-//     const cart = await Cart.findOne({ cartId }).session(session);
-    
-//     if (!cart) {
-//       await session.abortTransaction();
-//       session.endSession();
-//       return res.status(404).json({ 
-//         message: 'Cart not found' 
-//       });
-//     }
-    
-//     // Check if cart is empty
-//     if (cart.items.length === 0) {
-//       await session.abortTransaction();
-//       session.endSession();
-//       return res.status(400).json({ 
-//         message: 'Cart is empty' 
-//       });
-//     }
-    
-//     // Create bookings for each cart item
-//     const bookings = [];
-    
-//     for (const item of cart.items) {
-//       const booking = new Booking({
-//         activity: item.activity,
-//         deal: item.deal,
-//         bookingDate: item.bookingDate,
-//         numberOfAdults: item.numberOfAdults,
-//         numberOfChildren: item.numberOfChildren,
-//         totalPrice: item.subtotal,
-//         email,
-//         phoneNumber,
-//         bookingReference: generateBookingReference(),
-//         status: BookingStatus.COMPLETED
-//       });
-      
-//       await booking.save({ session });
-//       bookings.push(booking);
-//     }
-    
-//     // Clear the cart
-//     cart.items = [];
-//     await cart.save({ session });
-    
-//     // Commit transaction
-//     await session.commitTransaction();
-    
-//     res.status(201).json({
-//       message: 'Checkout successful',
-//       bookings,
-//       totalBookings: bookings.length,
-//       sessionId: req.query.sessionid
-//     });
-    
-//   } catch (error) {
-//     // Abort transaction on error
-//     await session.abortTransaction();
-//     handleError(res, error, 'Error during checkout');
-//   } finally {
-//     // End session
-//     session.endSession();
-//   }
-// };
-//this one is working
-// export const checkoutCart = async (req: Request, res: Response): Promise<any> => {
-//   const session = await mongoose.startSession();
-     
-//   try {
-//     // Start transaction
-//     session.startTransaction();
-        
-//     // Get cart ID (from params or session)
-//     let { cartId } = req.params;
-//     if (!cartId) {
-//       cartId = getOrCreateSessionId(req);
-//     }
-        
-//     const { email, phoneNumber } = req.body;
-        
-//     // Validate required fields
-//     if (!email || !phoneNumber) {
-//       return res.status(400).json({
-//         message: 'Email and phone number are required'
-//       });
-//     }
-        
-//     // Validate email format
-//     const emailRegex = /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/;
-//     if (!emailRegex.test(email)) {
-//       return res.status(400).json({
-//         message: 'Invalid email format'
-//       });
-//     }
-        
-//     // Validate phone number
-//     const phoneRegex = /^\+?[1-9]\d{1,14}$/;
-//     if (!phoneRegex.test(phoneNumber)) {
-//       return res.status(400).json({
-//         message: 'Invalid phone number format'
-//       });
-//     }
-        
-//     // Find cart and populate activity data
-//     const cart = await Cart.findOne({ cartId })
-//       .populate('items.activity', 'name')
-//       .populate('items.deal', 'title')
-//       .session(session);
-        
-//     if (!cart) {
-//       await session.abortTransaction();
-//       session.endSession();
-//       return res.status(404).json({
-//         message: 'Cart not found'
-//       });
-//     }
-        
-//     // Check if cart is empty
-//     if (cart.items.length === 0) {
-//       await session.abortTransaction();
-//       session.endSession();
-//       return res.status(400).json({
-//         message: 'Cart is empty'
-//       });
-//     }
-
-//     // Create single booking for the entire cart
-   
-        
-//     const booking = new Booking({
-//       cart: cart._id, // Reference to the cart
-//       totalPrice: cart.totalAmount,
-//       email,
-//       phoneNumber,
-//       bookingReference: generateBookingReference(),
-//       status: BookingStatus.PENDING
-//     });
-            
-//     await booking.save({ session });
-   
-
-//     // Create Stripe checkout session
-//     const stripeSession = await stripe.checkout.sessions.create({
-//       line_items: cart.items.map(item => ({
-//         price_data: {
-//           currency: 'usd',
-//           product_data: {
-//             name: `${(item.activity as any).name}`,
-//             description: `Booking Date: ${item.bookingDate.toDateString()}, Adults: ${item.numberOfAdults}, Children: ${item.numberOfChildren}`
-//           },
-//           unit_amount: Math.round(item.subtotal * 100) // Convert to cents
-//         },
-//         quantity: 1
-//       })),
-//       mode: 'payment',
-//       shipping_address_collection: {
-//         allowed_countries: ['US', 'BR']
-//       },
-//       success_url: `${process.env.BASE_URL}/complete?session_id={CHECKOUT_SESSION_ID}&cart_id=${cartId}`,
-//       cancel_url: `${process.env.BASE_URL}/cancel?cart_id=${cartId}`,
-//       metadata: {
-//         cartId: cartId,
-//         email: email,
-//         phoneNumber: phoneNumber,
-//       }
-//     });
-        
-//     // DON'T clear the cart here - do it after successful payment
-//     // The cart should be cleared in the success webhook or completion handler
-//     // cart.items = [];
-//     // await cart.save({ session });
-        
-//     // Commit transaction
-//     await session.commitTransaction();
-        
-//     res.status(201).json({
-//       message: 'Checkout initiated successfully',
-//       booking:booking,
-//       totalAmount: cart.totalAmount,
-//       sessionId: req.query.sessionid,
-//       stripeSessionUrl: stripeSession.url,
-//       cartId: cartId
-//     });
-      
-//   } catch (error) {
-//     // Abort transaction on error
-//     await session.abortTransaction();
-//     handleError(res, error, 'Error during checkout');
-//   } finally {
-//     // End session
-//     session.endSession();
-//   }
-// };
 export const checkoutCart = async (req: Request, res: Response): Promise<any> => {
   const session = await mongoose.startSession();
   
@@ -636,13 +577,16 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
     // Start transaction
     session.startTransaction();
     
-    // Get cart ID (from params or session)
+    // Get cart ID (from params or session) - properly type cast
     let { cartId } = req.params;
     if (!cartId) {
       cartId = getOrCreateSessionId(req);
     }
     
-    const { email, phoneNumber,firstName,lastName,title  } = req.body;
+    const { email, phoneNumber, firstName, lastName, title } = req.body;
+    
+    // Properly handle currency query parameter with type assertion
+    const currency = typeof req.query.currency === 'string' ? req.query.currency : undefined;
     
     // Validate required fields
     if (!email || !phoneNumber) {
@@ -665,6 +609,16 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
       return res.status(400).json({
         message: 'Invalid phone number format'
       });
+    }
+
+    // Validate currency if provided
+    if (currency && currency !== 'USD') {
+      if (!(await isValidCurrency(currency))) {
+        return res.status(400).json({
+          message: 'Invalid currency code',
+          supportedCurrencies: await getSupportedCurrencies(),
+        });
+      }
     }
     
     // Find cart and populate activity data
@@ -690,14 +644,26 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
       });
     }
 
-    // Create booking items from cart items
+    // Convert cart to requested currency for display purposes
+    let displayCart = cart;
+    let currencyInfo = null;
+    
+    if (currency && currency !== 'USD') {
+      const conversionResult = await convertCartCurrency(cartId, currency, 'USD');
+      if (conversionResult.success) {
+        displayCart = conversionResult.data as any;
+        currencyInfo = conversionResult.currencyInfo;
+      }
+    }
+
+    // Create booking items from cart items (always store in USD for consistency)
     const bookingItems = cart.items.map(item => ({
       activity: item.activity._id,
       deal: item.deal._id,
       bookingDate: item.bookingDate,
       numberOfAdults: item.numberOfAdults,
       numberOfChildren: item.numberOfChildren,
-      adultPrice: item.adultPrice,
+      adultPrice: item.adultPrice, // Store original USD prices
       childPrice: item.childPrice,
       subtotal: item.subtotal,
       // Store activity and deal names for easy reference
@@ -705,11 +671,11 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
       dealTitle: (item.deal as any).title
     }));
 
-    // Create single booking for the entire cart
+    // Create single booking for the entire cart (store in USD)
     const booking = new Booking({
       cart: cart._id, // Reference to the cart
       items: bookingItems, // Store cart items in booking
-      totalPrice: cart.totalAmount,
+      totalPrice: cart.totalAmount, // Store in USD
       email,
       phoneNumber,
       bookingReference: generateBookingReference(),
@@ -721,49 +687,55 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
     
     await booking.save({ session });
     
-    // Create Stripe checkout session
-   const stripeSession = await stripe.checkout.sessions.create({
-  line_items: cart.items.map(item => ({
-    price_data: {
-      currency: 'usd',
-      product_data: {
-        name: `${(item.activity as any).name}`,
-        description: `Booking Date: ${item.bookingDate.toDateString()}, Adults: ${item.numberOfAdults}, Children: ${item.numberOfChildren}`
-      },
-      unit_amount: Math.round(item.subtotal * 100) // Convert to cents
-    },
-    quantity: 1
-  })),
-  mode: 'payment',
-  // Pre-fill customer email (since you already have it from req.body)
-  customer_email: email,
-  // Remove shipping address collection entirely
-  success_url: `${process.env.BASE_URL}/complete?session_id={CHECKOUT_SESSION_ID}&cart_id=${cartId}`,
-  cancel_url: `${process.env.BASE_URL}/cancel?cart_id=${cartId}`,
-  metadata: {
-    cartId: cartId,
-    email: email,
-    phoneNumber: phoneNumber,
-  }
-});
+    // Properly handle sessionid query parameter
+    const sessionId = typeof req.query.sessionid === 'string' ? req.query.sessionid : undefined;
     
-    // DON'T clear the cart here - do it after successful payment
-    // The cart should be cleared in the success webhook or completion handler
-    // cart.items = [];
-    // await cart.save({ session });
+    // Create Stripe checkout session (Stripe always processes in USD for consistency)
+    const stripeSession = await stripe.checkout.sessions.create({
+      line_items: cart.items.map(item => ({
+        price_data: {
+          currency: 'usd', // Keep Stripe processing in USD
+          product_data: {
+            name: `${(item.activity as any).name}`,
+            description: `Booking Date: ${item.bookingDate.toDateString()}, Adults: ${item.numberOfAdults}, Children: ${item.numberOfChildren}`
+          },
+          unit_amount: Math.round(item.subtotal * 100) // Convert to cents (USD)
+        },
+        quantity: 1
+      })),
+      mode: 'payment',
+      // Pre-fill customer email
+      customer_email: email,
+      success_url: `${process.env.BASE_URL}/complete?session_id={CHECKOUT_SESSION_ID}&cart_id=${cartId}`,
+      cancel_url: `${process.env.BASE_URL}/cancel?cart_id=${cartId}`,
+      metadata: {
+        cartId: cartId,
+        email: email,
+        phoneNumber: phoneNumber,
+        displayCurrency: currency ? currency : 'USD', // Store display currency for reference
+      }
+    });
     
     // Commit transaction
     await session.commitTransaction();
     
-    res.status(201).json({
+    // Prepare response with appropriate currency display
+    const response: any = {
       message: 'Checkout initiated successfully',
       booking: booking,
-      totalAmount: cart.totalAmount,
-      sessionId: req.query.sessionid,
+      totalAmount: displayCart.totalAmount, // Display in requested currency
+      baseCurrency: 'USD',
+      sessionId: sessionId,
       stripeSessionUrl: stripeSession.url,
       cartId: cartId
-      
-    });
+    };
+
+    // Add currency conversion info if applicable
+    if (currencyInfo) {
+      response.currencyInfo = currencyInfo;
+    }
+    
+    res.status(201).json(response);
     
   } catch (error) {
     // Abort transaction on error
@@ -774,67 +746,6 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
     session.endSession();
   }
 };
-
-// Additional handlers for Stripe completion and cancellation
-// export const completeCheckout = async (req: Request, res: Response): Promise<any> => {
-//   try {
-//     const result = await Promise.all([
-//       stripe.checkout.sessions.retrieve(req.query.session_id as string, { 
-//         expand: ['payment_intent.payment_method'] 
-//       }),
-//       stripe.checkout.sessions.listLineItems(req.query.session_id as string)
-//     ]);
-
-//     console.log(JSON.stringify(result));
-
-
-//     res.send('Your payment was successful');
-//   } catch (error) {
-//     handleError(res, error, 'Error completing checkout');
-//   }
-// };
-// export const completeCheckout = async (req: Request, res: Response): Promise<any> => {
-//   try {
-//     const sessionId = req.query.session_id as string;
-//     const cartId = req.query.cart_id as string;
-
-//     // Retrieve Stripe session details
-//     const result = await Promise.all([
-//       stripe.checkout.sessions.retrieve(sessionId, { 
-//         expand: ['payment_intent.payment_method'] 
-//       }),
-//       stripe.checkout.sessions.listLineItems(sessionId)
-//     ]);
-
-//     console.log(JSON.stringify(result));
-
-//     // Update booking status to COMPLETED
-//     if (cartId) {
-//       const stripeSession = result[0];
-//       const { email, phoneNumber } = stripeSession.metadata || {};
-
-//       if (email && phoneNumber) {
-//         await Booking.updateMany(
-//           { 
-//             email, 
-//             phoneNumber, 
-//             status: BookingStatus.PENDING,
-//             cart: cartId 
-//           },
-//           { 
-//             status: BookingStatus.COMPLETED 
-//           }
-//         );
-//       }
-//     }
-
-//     res.send('Your payment was successful and bookings have been confirmed!');
-
-//   } catch (error) {
-//     handleError(res, error, 'Error completing checkout');
-//   }
-// };
-
 export const completeCheckout = async (req: Request, res: Response): Promise<any> => {
   try {
     const sessionId = req.query.session_id as string;
