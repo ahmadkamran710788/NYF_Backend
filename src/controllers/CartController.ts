@@ -570,6 +570,183 @@ export const clearCart = async (req: Request, res: Response): Promise<any> => {
   }
 };
 
+// export const checkoutCart = async (req: Request, res: Response): Promise<any> => {
+//   const session = await mongoose.startSession();
+  
+//   try {
+//     // Start transaction
+//     session.startTransaction();
+    
+//     // Get cart ID (from params or session) - properly type cast
+//     let { cartId } = req.params;
+//     if (!cartId) {
+//       cartId = getOrCreateSessionId(req);
+//     }
+    
+//     const { email, phoneNumber, firstName, lastName, title } = req.body;
+    
+//     // Properly handle currency query parameter with type assertion
+//     const currency = typeof req.query.currency === 'string' ? req.query.currency : undefined;
+    
+//     // Validate required fields
+//     if (!email || !phoneNumber) {
+//       return res.status(400).json({
+//         message: 'Email and phone number are required'
+//       });
+//     }
+    
+//     // Validate email format
+//     const emailRegex = /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/;
+//     if (!emailRegex.test(email)) {
+//       return res.status(400).json({
+//         message: 'Invalid email format'
+//       });
+//     }
+    
+//     // Validate phone number
+//     const phoneRegex = /^\+?[1-9]\d{1,14}$/;
+//     if (!phoneRegex.test(phoneNumber)) {
+//       return res.status(400).json({
+//         message: 'Invalid phone number format'
+//       });
+//     }
+
+//     // Validate currency if provided
+//     if (currency && currency !== 'USD') {
+//       if (!(await isValidCurrency(currency))) {
+//         return res.status(400).json({
+//           message: 'Invalid currency code',
+//           supportedCurrencies: await getSupportedCurrencies(),
+//         });
+//       }
+//     }
+    
+//     // Find cart and populate activity data
+//     const cart = await Cart.findOne({ cartId })
+//       .populate('items.activity', 'name')
+//       .populate('items.deal', 'title')
+//       .session(session);
+    
+//     if (!cart) {
+//       await session.abortTransaction();
+//       session.endSession();
+//       return res.status(404).json({
+//         message: 'Cart not found'
+//       });
+//     }
+    
+//     // Check if cart is empty
+//     if (cart.items.length === 0) {
+//       await session.abortTransaction();
+//       session.endSession();
+//       return res.status(400).json({
+//         message: 'Cart is empty'
+//       });
+//     }
+
+//     // Convert cart to requested currency for display purposes
+//     let displayCart = cart;
+//     let currencyInfo = null;
+    
+//     if (currency && currency !== 'USD') {
+//       const conversionResult = await convertCartCurrency(cartId, currency, 'USD');
+//       if (conversionResult.success) {
+//         displayCart = conversionResult.data as any;
+//         currencyInfo = conversionResult.currencyInfo;
+//       }
+//     }
+
+//     // Create booking items from cart items (always store in USD for consistency)
+//     const bookingItems = cart.items.map(item => ({
+//       activity: item.activity._id,
+//       deal: item.deal._id,
+//       bookingDate: item.bookingDate,
+//       numberOfAdults: item.numberOfAdults,
+//       numberOfChildren: item.numberOfChildren,
+//       adultPrice: item.adultPrice, // Store original USD prices
+//       childPrice: item.childPrice,
+//       subtotal: item.subtotal,
+//       // Store activity and deal names for easy reference
+//       activityName: (item.activity as any).name,
+//       dealTitle: (item.deal as any).title
+//     }));
+
+//     // Create single booking for the entire cart (store in USD)
+//     const booking = new Booking({
+//       cart: cart._id, // Reference to the cart
+//       items: bookingItems, // Store cart items in booking
+//       totalPrice: cart.totalAmount, // Store in USD
+//       email,
+//       phoneNumber,
+//       bookingReference: generateBookingReference(),
+//       status: BookingStatus.PENDING,
+//       firstName,
+//       lastName,
+//       title
+//     });
+    
+//     await booking.save({ session });
+    
+//     // Properly handle sessionid query parameter
+//     const sessionId = typeof req.query.sessionid === 'string' ? req.query.sessionid : undefined;
+    
+//     // Create Stripe checkout session (Stripe always processes in USD for consistency)
+//     const stripeSession = await stripe.checkout.sessions.create({
+//       line_items: cart.items.map(item => ({
+//         price_data: {
+//           currency: 'usd', // Keep Stripe processing in USD
+//           product_data: {
+//             name: `${(item.activity as any).name}`,
+//             description: `Booking Date: ${item.bookingDate.toDateString()}, Adults: ${item.numberOfAdults}, Children: ${item.numberOfChildren}`
+//           },
+//           unit_amount: Math.round(item.subtotal * 100) // Convert to cents (USD)
+//         },
+//         quantity: 1
+//       })),
+//       mode: 'payment',
+//       // Pre-fill customer email
+//       customer_email: email,
+//       success_url: `${process.env.BASE_URL}/complete?session_id={CHECKOUT_SESSION_ID}&cart_id=${cartId}`,
+//       cancel_url: `${process.env.BASE_URL}/cancel?cart_id=${cartId}`,
+//       metadata: {
+//         cartId: cartId,
+//         email: email,
+//         phoneNumber: phoneNumber,
+//         displayCurrency: currency ? currency : 'USD', // Store display currency for reference
+//       }
+//     });
+    
+//     // Commit transaction
+//     await session.commitTransaction();
+    
+//     // Prepare response with appropriate currency display
+//     const response: any = {
+//       message: 'Checkout initiated successfully',
+//       booking: booking,
+//       totalAmount: displayCart.totalAmount, // Display in requested currency
+//       baseCurrency: 'USD',
+//       sessionId: sessionId,
+//       stripeSessionUrl: stripeSession.url,
+//       cartId: cartId
+//     };
+
+//     // Add currency conversion info if applicable
+//     if (currencyInfo) {
+//       response.currencyInfo = currencyInfo;
+//     }
+    
+//     res.status(201).json(response);
+    
+//   } catch (error) {
+//     // Abort transaction on error
+//     await session.abortTransaction();
+//     handleError(res, error, 'Error during checkout');
+//   } finally {
+//     // End session
+//     session.endSession();
+//   }
+// };
+
 export const checkoutCart = async (req: Request, res: Response): Promise<any> => {
   const session = await mongoose.startSession();
   
@@ -577,7 +754,7 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
     // Start transaction
     session.startTransaction();
     
-    // Get cart ID (from params or session) - properly type cast
+    // Get cart ID (from params or session)
     let { cartId } = req.params;
     if (!cartId) {
       cartId = getOrCreateSessionId(req);
@@ -585,8 +762,9 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
     
     const { email, phoneNumber, firstName, lastName, title } = req.body;
     
-    // Properly handle currency query parameter with type assertion
-    const currency = typeof req.query.currency === 'string' ? req.query.currency : undefined;
+    // Properly handle currency query parameter
+    const currency = typeof req.query.currency === 'string' ? req.query.currency : 'USD';
+    const sessionId = typeof req.query.sessionid === 'string' ? req.query.sessionid : undefined;
     
     // Validate required fields
     if (!email || !phoneNumber) {
@@ -612,7 +790,7 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
     }
 
     // Validate currency if provided
-    if (currency && currency !== 'USD') {
+    if (currency !== 'USD') {
       if (!(await isValidCurrency(currency))) {
         return res.status(400).json({
           message: 'Invalid currency code',
@@ -644,19 +822,26 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
       });
     }
 
-    // Convert cart to requested currency for display purposes
-    let displayCart = cart;
+    // Convert cart to requested currency for both display and processing
+    let processedCart = cart;
     let currencyInfo = null;
     
-    if (currency && currency !== 'USD') {
+    if (currency !== 'USD') {
       const conversionResult = await convertCartCurrency(cartId, currency, 'USD');
       if (conversionResult.success) {
-        displayCart = conversionResult.data as any;
+        processedCart = conversionResult.data as any;
         currencyInfo = conversionResult.currencyInfo;
+      } else {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({
+          message: 'Currency conversion failed',
+          error: 'Unable to convert cart to requested currency'
+        });
       }
     }
 
-    // Create booking items from cart items (always store in USD for consistency)
+    // Create booking items from original cart (store in USD for consistency)
     const bookingItems = cart.items.map(item => ({
       activity: item.activity._id,
       deal: item.deal._id,
@@ -666,15 +851,15 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
       adultPrice: item.adultPrice, // Store original USD prices
       childPrice: item.childPrice,
       subtotal: item.subtotal,
-      // Store activity and deal names for easy reference
+      // Store activity and deal names for reference
       activityName: (item.activity as any).name,
       dealTitle: (item.deal as any).title
     }));
 
-    // Create single booking for the entire cart (store in USD)
+    // Create booking record (store in USD for consistency)
     const booking = new Booking({
-      cart: cart._id, // Reference to the cart
-      items: bookingItems, // Store cart items in booking
+      cart: cart._id,
+      items: bookingItems,
       totalPrice: cart.totalAmount, // Store in USD
       email,
       phoneNumber,
@@ -687,24 +872,20 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
     
     await booking.save({ session });
     
-    // Properly handle sessionid query parameter
-    const sessionId = typeof req.query.sessionid === 'string' ? req.query.sessionid : undefined;
-    
-    // Create Stripe checkout session (Stripe always processes in USD for consistency)
+    // Create Stripe checkout session in the requested currency
     const stripeSession = await stripe.checkout.sessions.create({
-      line_items: cart.items.map(item => ({
+      line_items: processedCart.items.map(item => ({
         price_data: {
-          currency: 'usd', // Keep Stripe processing in USD
+          currency: currency.toLowerCase(), // Use requested currency
           product_data: {
             name: `${(item.activity as any).name}`,
             description: `Booking Date: ${item.bookingDate.toDateString()}, Adults: ${item.numberOfAdults}, Children: ${item.numberOfChildren}`
           },
-          unit_amount: Math.round(item.subtotal * 100) // Convert to cents (USD)
+          unit_amount: Math.round(item.subtotal * 100) // Convert to cents in requested currency
         },
         quantity: 1
       })),
       mode: 'payment',
-      // Pre-fill customer email
       customer_email: email,
       success_url: `${process.env.BASE_URL}/complete?session_id={CHECKOUT_SESSION_ID}&cart_id=${cartId}`,
       cancel_url: `${process.env.BASE_URL}/cancel?cart_id=${cartId}`,
@@ -712,18 +893,19 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
         cartId: cartId,
         email: email,
         phoneNumber: phoneNumber,
-        displayCurrency: currency ? currency : 'USD', // Store display currency for reference
+        processingCurrency: currency
       }
     });
     
     // Commit transaction
     await session.commitTransaction();
     
-    // Prepare response with appropriate currency display
+    // Prepare response
     const response: any = {
       message: 'Checkout initiated successfully',
       booking: booking,
-      totalAmount: displayCart.totalAmount, // Display in requested currency
+      totalAmount: processedCart.totalAmount, // Amount in requested currency
+      currency: currency,
       baseCurrency: 'USD',
       sessionId: sessionId,
       stripeSessionUrl: stripeSession.url,
