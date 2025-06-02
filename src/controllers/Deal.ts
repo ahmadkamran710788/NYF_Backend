@@ -124,13 +124,13 @@ export const getDealsByActivity = async (req: Request, res: Response): Promise<a
     const deals = await Deal.find({ activity: activityId })
       .populate('activity', 'name category city');
 
-    if (deals.length === 0) {
-      return res.status(200).json({
-        message: 'No deals found for this activity',
-        deals: [],
-        count: 0
-      });
-    }
+    // if (deals.length === 0) {
+    //   return res.status(200).json({
+    //     message: 'No deals found for this activity',
+    //     deals: [],
+    //     count: 0
+    //   });
+    // }
 
     // Convert deals with currency conversion
     const convertedResponse = await getDealsWithCurrencyConversion(
@@ -627,6 +627,7 @@ export const getDealsPricingByActivityAndDate = async (req: Request, res: Respon
         currency: targetCurrency
       });
     }
+
 
     // Transform deals to include activity details in the right format
     const transformedDeals = deals.map(deal => ({
