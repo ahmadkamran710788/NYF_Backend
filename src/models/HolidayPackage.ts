@@ -130,9 +130,9 @@ export interface IHolidayPackage extends Document {
 }
 
 const DayItinerarySchema = new Schema({
-  day: { type: Number, required: true },
-  title: { type: String, required: true },
-  description: { type: String, required: true },
+  day: { type: Number },
+  title: { type: String },
+  description: { type: String },
   activities: [{ type: Schema.Types.ObjectId, ref: "Activity" }],
   includedMeals: [{ type: String }],
   transport: { type: String }
