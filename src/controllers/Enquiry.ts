@@ -278,7 +278,8 @@ const handleHolidayPackageEnquiry = async (req: Request, res: Response, enquiryD
     childAges,
     packageId,
     budget,
-    staycation
+    staycation,
+    nights
   } = req.body;
   
   // Validate package
@@ -328,7 +329,7 @@ const handleHolidayPackageEnquiry = async (req: Request, res: Response, enquiryD
   enquiryData.childAges = children > 0 ? childAges : undefined;
   enquiryData.packageId = packageId;
   enquiryData.budget = finalBudget;
-  
+  enquiryData.nights = nights;
 
    if (staycation !== undefined) {
     enquiryData.staycation = staycation;
