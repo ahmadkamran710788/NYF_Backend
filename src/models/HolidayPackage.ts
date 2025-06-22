@@ -121,6 +121,7 @@ export interface IHolidayPackage extends Document {
   hotelStars: number;
   hasTransport: boolean;
   hasAccommodation: boolean;
+  staycation: boolean;
   hasActivities: boolean;
   terms: string[];
   notes: string[];
@@ -170,6 +171,7 @@ const HolidayPackageSchema = new Schema({
   hotelStars: { type: Number, default: 3 },
   hasTransport: { type: Boolean, default: true },
   hasAccommodation: { type: Boolean, default: true },
+  staycation: { type: Boolean, default: false },
   hasActivities: { type: Boolean, default: true },
   terms: [{ type: String }],
   notes: [{ type: String }],

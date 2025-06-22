@@ -64,6 +64,7 @@ export interface CleanedHolidayPackage {
   hasTransport: boolean;
   hasAccommodation: boolean;
   hasActivities: boolean;
+  staycation: boolean;
   terms: string[];
   notes: string[];
   paymentPolicy: string;
@@ -380,6 +381,7 @@ export const convertPackageWithCleanResponse = async (
     hasTransport: !!packageObject.hasTransport,
     hasAccommodation: !!packageObject.hasAccommodation,
     hasActivities: !!packageObject.hasActivities,
+    staycation: !!packageObject.staycation,
     terms: Array.isArray(packageObject.terms) ? packageObject.terms : [],
     notes: Array.isArray(packageObject.notes) ? packageObject.notes : [],
     paymentPolicy: packageObject.paymentPolicy || '',
