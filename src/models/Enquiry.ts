@@ -12,6 +12,7 @@ export interface IEnquiry extends Document {
   childAge?: number;
   budget?: number;
   message?: string;
+  staycation?: boolean;
   packageId: mongoose.Types.ObjectId;
   dealId: mongoose.Types.ObjectId;
   status?: 'Pending' | 'Contacted' | 'Booked' | 'Cancelled';
@@ -44,6 +45,7 @@ const EnquirySchema = new Schema({
   travelDate: { type: Date, required: true },
   budget: { type: Number },
   message: { type: String },
+  staycation: { type: Boolean, default: false },
   status: { 
     type: String, 
     enum: ['Pending', 'Contacted', 'Booked', 'Cancelled'], 

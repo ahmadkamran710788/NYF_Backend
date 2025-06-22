@@ -121,7 +121,7 @@ export interface IHolidayPackage extends Document {
   hotelStars: number;
   hasTransport: boolean;
   hasAccommodation: boolean;
-  staycation: boolean;
+  staycation?: boolean;
   hasActivities: boolean;
   terms: string[];
   notes: string[];
