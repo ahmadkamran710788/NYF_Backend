@@ -760,7 +760,7 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
       cartId = getOrCreateSessionId(req);
     }
     
-    const { email, phoneNumber, firstName, lastName, title } = req.body;
+    const { email, phoneNumber, firstName, lastName, title,comment  } = req.body;
     
     // Properly handle currency query parameter
     const currency = typeof req.query.currency === 'string' ? req.query.currency : 'USD';
@@ -867,7 +867,8 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
       status: BookingStatus.PENDING,
       firstName,
       lastName,
-      title
+      title,
+      comment
     });
     
     await booking.save({ session });

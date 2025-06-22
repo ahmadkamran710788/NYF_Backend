@@ -23,6 +23,7 @@ export interface IBooking extends Document {
   bookingReference: string;
   status: BookingStatus;
   title: Title;
+  comment?: string;
   firstName: string;
   lastName: string;
   createdAt: Date;
@@ -117,6 +118,7 @@ const BookingSchema = new Schema({
     trim: true,
     match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please fill a valid email address']
   },
+  
   phoneNumber: { 
     type: String, 
     required: false, // Made optional
@@ -136,6 +138,10 @@ const BookingSchema = new Schema({
   title: { 
     type: String, 
     enum: Object.values(Title),
+  },
+  comment: { 
+    type: String, 
+    required: false, // Made optional
   },
   firstName: {
     type: String,
