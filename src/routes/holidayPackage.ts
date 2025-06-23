@@ -8,7 +8,8 @@ import {
   getPackagesByDestination,
   getPackagesByType,
   addPackageImages,
-  getPackagesByDestinationName
+  getPackagesByDestinationName,
+  removePackageImages
 } from "../controllers/HolidayController";
 import upload from "../middleware/uploadMiddleware";
 
@@ -22,6 +23,7 @@ router.get("/:id", getPackageById);
 router.put("/:id", updatePackage);
 router.delete("/:id", deletePackage);
 router.post("/:id/images",upload.array("files", 10), addPackageImages);
+router.delete("/images/:imageUrls", removePackageImages);
 
 
 // Additional routes

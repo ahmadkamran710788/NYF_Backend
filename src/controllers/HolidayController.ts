@@ -179,6 +179,64 @@ export const addPackageImages = async (req: Request, res: Response): Promise<voi
       });
     }
   };
+
+  export const removePackageImages = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const packageId = req.params.id;
+    const { imageUrls } = req.body; // Array of image URLs to remove
+    
+    if (!mongoose.Types.ObjectId.isValid(packageId)) {
+      res.status(400).json({ 
+        success: false, 
+        error: "Invalid package ID format" 
+      });
+      return;
+    }
+    
+    if (!imageUrls || !Array.isArray(imageUrls) || imageUrls.length === 0) {
+      res.status(400).json({
+        success: false,
+        error: "No image URLs provided for removal"
+      });
+      return;
+    }
+    
+    const updatedPackage = await HolidayPackage.findByIdAndUpdate(
+      packageId,
+      {
+        $pull: { images: { $in: imageUrls } }
+      },
+      { new: true, runValidators: true }
+    );
+    
+    if (!updatedPackage) {
+      res.status(404).json({
+        success: false,
+        error: "Holiday package not found"
+      });
+      return;
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: `Successfully removed ${imageUrls.length} image(s)`,
+      data: {
+        packageId: updatedPackage._id,
+        removedImages: imageUrls,
+        remainingImages: updatedPackage.images?.length || 0
+      }
+    });
+    
+  } catch (error: any) {
+    console.error("Error in removePackageImages:", error);
+    
+    res.status(500).json({
+      success: false,
+      message: "Failed to remove images from holiday package",
+      error: error.message || String(error)
+    });
+  }
+};
 // Update package
 export const updatePackage = async (req: Request, res: Response): Promise<void> => {
   try {
