@@ -23,7 +23,7 @@ router.get("/:id", getPackageById);
 router.put("/:id", updatePackage);
 router.delete("/:id", deletePackage);
 router.post("/:id/images",upload.array("files", 10), addPackageImages);
-router.delete("/images/:imageUrls", removePackageImages);
+router.delete("/images/:id", removePackageImages);
 
 
 // Additional routes
