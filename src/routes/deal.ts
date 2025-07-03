@@ -7,7 +7,10 @@ import {
   deleteDeal,
   getDealsPricingByActivityAndDate,
   getBestDealPricing,
-  getAllDeals
+  getAllDeals,
+  addBulkDealPricing,
+  updateBulkDealPricing,
+  deleteBulkDealPricing
 } from '../controllers/Deal';
 import upload from "../middleware/uploadMiddleware";
 
@@ -21,5 +24,8 @@ router.put('/:dealId', updateDeal);
 router.delete('/:dealId', deleteDeal);
 router.get('/activity/:activityId/pricing', getDealsPricingByActivityAndDate);
 router.get('/:dealId/pricing', getBestDealPricing);
+router.post('/:dealId/pricing/bulk', addBulkDealPricing);
+router.put('/:dealId/pricing/bulk', updateBulkDealPricing);
+router.delete('/:dealId/pricing/bulk', deleteBulkDealPricing);
 
 export default router;

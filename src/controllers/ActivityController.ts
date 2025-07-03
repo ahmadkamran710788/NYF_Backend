@@ -68,8 +68,8 @@ export const getAllActivities = async (
     const filter = buildActivityFilter(req.query);
     let { countryName, cityName, continentName, currency } = req.query;
 
-    // Get target currency (default to USD)
-    const targetCurrency = (currency as string) || 'USD';
+    // Get target currency (default to AED)
+    const targetCurrency = (currency as string) || 'AED';
 
     // Process comma-separated values for location parameters
     const countries = countryName ? String(countryName).split(',').filter(Boolean) : [];
@@ -238,8 +238,8 @@ export const getActivitiesWithoutPagination = async (
     const filter = buildActivityFilter(req.query);
     let { countryName, cityName, continentName, currency } = req.query;
 
-    // Get target currency (default to USD)
-    const targetCurrency = (currency as string) || 'USD';
+    // Get target currency (default to AED)
+    const targetCurrency = (currency as string) || 'AED';
 
     // Process comma-separated values for location parameters
     const countries = countryName ? String(countryName).split(',').filter(Boolean) : [];
@@ -377,8 +377,8 @@ export const getActivitiesByCity = async (req: Request, res: Response) => {
     const limit = parseInt(req.query.limit as string) || 10;
     const skip = (page - 1) * limit;
     
-    // Get target currency (default to USD)
-    const targetCurrency = (currency as string) || 'USD';
+    // Get target currency (default to AED)
+    const targetCurrency = (currency as string) || 'AED';
     
     // Add city filter
     filter.city = new mongoose.Types.ObjectId(cityId);
@@ -417,8 +417,8 @@ export const getActivitiesByCountry = async (req: Request, res: Response) => {
     const limit = parseInt(req.query.limit as string) || 10;
     const skip = (page - 1) * limit;
 
-    // Get target currency (default to USD)
-    const targetCurrency = (currency as string) || 'USD';
+    // Get target currency (default to AED)
+    const targetCurrency = (currency as string) || 'AED';
 
     // Get all cities for this country
     const cities = await City.find({ country: countryId });
@@ -465,8 +465,8 @@ export const getActivitiesByContinent = async (req: Request, res: Response) => {
     const limit = parseInt(req.query.limit as string) || 10;
     const skip = (page - 1) * limit;
     
-    // Get target currency (default to USD)
-    const targetCurrency = (currency as string) || 'USD';
+    // Get target currency (default to AED)
+    const targetCurrency = (currency as string) || 'AED';
     
     // Get countries in this continent
     const countries = await Country.find({ continent: continentId });
@@ -529,8 +529,8 @@ export const getActivitiesByCategory = async (
     const limit = parseInt(req.query.limit as string) || 10;
     const skip = (page - 1) * limit;
 
-    // Get target currency (default to USD)
-    const targetCurrency = (currency as string) || 'USD';
+    // Get target currency (default to AED)
+    const targetCurrency = (currency as string) || 'AED';
 
     // Validate category
     if (
@@ -756,7 +756,7 @@ export const addActivity = async (
       }
     }
 
-    // Create new activity (prices stored in USD)
+    // Create new activity (prices stored in AED)
     const activity = new Activity({
       name,
       category,
@@ -771,7 +771,7 @@ export const addActivity = async (
       isInstantConfirmation,
       isMobileTicket,
       isRefundable,
-      baseCurrency: 'USD', // Always store in USD
+      baseCurrency: 'AED', // Always store in AED
     });
 
     await activity.save();
@@ -1253,3 +1253,4 @@ export const deleteActivityById = async (
     });
   }
 };
+

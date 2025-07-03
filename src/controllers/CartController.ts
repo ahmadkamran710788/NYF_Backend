@@ -77,8 +77,8 @@ export const getOrCreateCart = async (req: Request, res: Response): Promise<any>
 
       await newCart.save();
 
-      // If currency is requested and different from USD, convert the response
-      if (currency && currency !== 'USD') {
+      // If currency is requested and different from AED, convert the response
+      if (currency && currency !== 'AED') {
         if (await isValidCurrency(currency as string)) {
           const convertedCart = await convertCartWithCleanResponse(newCart, currency as string);
           return res.status(201).json({
@@ -101,8 +101,8 @@ export const getOrCreateCart = async (req: Request, res: Response): Promise<any>
       });
     }
 
-    // If currency is requested and different from USD, convert the response
-    if (currency && currency !== 'USD') {
+    // If currency is requested and different from AED, convert the response
+    if (currency && currency !== 'AED') {
       if (await isValidCurrency(currency as string)) {
         const convertedCart = await convertCartWithCleanResponse(cart, currency as string);
         return res.status(200).json({
@@ -137,7 +137,7 @@ export const getOrCreateCart = async (req: Request, res: Response): Promise<any>
 export const getCartWithCurrency = async (req: Request, res: Response): Promise<any> => {
   try {
     const { cartId } = req.params;
-    const { currency = 'USD' } = req.query;
+    const { currency = 'AED' } = req.query;
 
     if (!cartId) {
       return res.status(400).json({ message: 'Cart ID is required' });
@@ -253,8 +253,8 @@ export const addItemToCart = async (req: Request, res: Response): Promise<any> =
         .populate('items.activity', 'name category images')
         .populate('items.deal', 'title description');
 
-      // If currency is requested and different from USD, convert the response
-      if (currency && currency !== 'USD') {
+      // If currency is requested and different from AED, convert the response
+      if (currency && currency !== 'AED') {
         if (await isValidCurrency(currency as string)) {
           const convertedCart = await convertCartWithCleanResponse(savedCart!, currency as string);
           return res.status(200).json({
@@ -304,8 +304,8 @@ export const addItemToCart = async (req: Request, res: Response): Promise<any> =
       .populate('items.activity', 'name category images')
       .populate('items.deal', 'title description');
 
-    // If currency is requested and different from USD, convert the response
-    if (currency && currency !== 'USD') {
+    // If currency is requested and different from AED, convert the response
+    if (currency && currency !== 'AED') {
       if (await isValidCurrency(currency as string)) {
         const convertedCart = await convertCartWithCleanResponse(updatedCart!, currency as string);
         return res.status(200).json({
@@ -384,8 +384,8 @@ export const removeItemFromCart = async (req: Request, res: Response): Promise<a
       .populate('items.activity', 'name category images')
       .populate('items.deal', 'title description');
 
-    // If currency is requested and different from USD, convert the response
-    if (currency && currency !== 'USD') {
+    // If currency is requested and different from AED, convert the response
+    if (currency && currency !== 'AED') {
       if (await isValidCurrency(currency as string)) {
         const convertedCart = await convertCartWithCleanResponse(updatedCart!, currency as string);
         return res.status(200).json({
@@ -475,8 +475,8 @@ export const updateCartItem = async (req: Request, res: Response): Promise<any> 
       .populate('items.activity', 'name category images')
       .populate('items.deal', 'title description');
 
-    // If currency is requested and different from USD, convert the response
-    if (currency && currency !== 'USD') {
+    // If currency is requested and different from AED, convert the response
+    if (currency && currency !== 'AED') {
       if (await isValidCurrency(currency as string)) {
         const convertedCart = await convertCartWithCleanResponse(updatedCart!, currency as string);
         return res.status(200).json({
@@ -542,8 +542,8 @@ export const clearCart = async (req: Request, res: Response): Promise<any> => {
       .populate('items.activity', 'name category images')
       .populate('items.deal', 'title description');
     
-    // If currency is requested and different from USD, convert the response
-    if (currency && currency !== 'USD') {
+    // If currency is requested and different from AED, convert the response
+    if (currency && currency !== 'AED') {
       if (await isValidCurrency(currency as string)) {
         const convertedCart = await convertCartWithCleanResponse(updatedCart!, currency as string);
         return res.status(200).json({
@@ -612,7 +612,7 @@ export const clearCart = async (req: Request, res: Response): Promise<any> => {
 //     }
 
 //     // Validate currency if provided
-//     if (currency && currency !== 'USD') {
+//     if (currency && currency !== 'AED') {
 //       if (!(await isValidCurrency(currency))) {
 //         return res.status(400).json({
 //           message: 'Invalid currency code',
@@ -648,22 +648,22 @@ export const clearCart = async (req: Request, res: Response): Promise<any> => {
 //     let displayCart = cart;
 //     let currencyInfo = null;
     
-//     if (currency && currency !== 'USD') {
-//       const conversionResult = await convertCartCurrency(cartId, currency, 'USD');
+//     if (currency && currency !== 'AED') {
+//       const conversionResult = await convertCartCurrency(cartId, currency, 'AED');
 //       if (conversionResult.success) {
 //         displayCart = conversionResult.data as any;
 //         currencyInfo = conversionResult.currencyInfo;
 //       }
 //     }
 
-//     // Create booking items from cart items (always store in USD for consistency)
+//     // Create booking items from cart items (always store in AED for consistency)
 //     const bookingItems = cart.items.map(item => ({
 //       activity: item.activity._id,
 //       deal: item.deal._id,
 //       bookingDate: item.bookingDate,
 //       numberOfAdults: item.numberOfAdults,
 //       numberOfChildren: item.numberOfChildren,
-//       adultPrice: item.adultPrice, // Store original USD prices
+//       adultPrice: item.adultPrice, // Store original AED prices
 //       childPrice: item.childPrice,
 //       subtotal: item.subtotal,
 //       // Store activity and deal names for easy reference
@@ -671,11 +671,11 @@ export const clearCart = async (req: Request, res: Response): Promise<any> => {
 //       dealTitle: (item.deal as any).title
 //     }));
 
-//     // Create single booking for the entire cart (store in USD)
+//     // Create single booking for the entire cart (store in AED)
 //     const booking = new Booking({
 //       cart: cart._id, // Reference to the cart
 //       items: bookingItems, // Store cart items in booking
-//       totalPrice: cart.totalAmount, // Store in USD
+//       totalPrice: cart.totalAmount, // Store in AED
 //       email,
 //       phoneNumber,
 //       bookingReference: generateBookingReference(),
@@ -690,16 +690,16 @@ export const clearCart = async (req: Request, res: Response): Promise<any> => {
 //     // Properly handle sessionid query parameter
 //     const sessionId = typeof req.query.sessionid === 'string' ? req.query.sessionid : undefined;
     
-//     // Create Stripe checkout session (Stripe always processes in USD for consistency)
+//     // Create Stripe checkout session (Stripe always processes in AED for consistency)
 //     const stripeSession = await stripe.checkout.sessions.create({
 //       line_items: cart.items.map(item => ({
 //         price_data: {
-//           currency: 'usd', // Keep Stripe processing in USD
+//           currency: 'AED', // Keep Stripe processing in AED
 //           product_data: {
 //             name: `${(item.activity as any).name}`,
 //             description: `Booking Date: ${item.bookingDate.toDateString()}, Adults: ${item.numberOfAdults}, Children: ${item.numberOfChildren}`
 //           },
-//           unit_amount: Math.round(item.subtotal * 100) // Convert to cents (USD)
+//           unit_amount: Math.round(item.subtotal * 100) // Convert to cents (AED)
 //         },
 //         quantity: 1
 //       })),
@@ -712,7 +712,7 @@ export const clearCart = async (req: Request, res: Response): Promise<any> => {
 //         cartId: cartId,
 //         email: email,
 //         phoneNumber: phoneNumber,
-//         displayCurrency: currency ? currency : 'USD', // Store display currency for reference
+//         displayCurrency: currency ? currency : 'AED', // Store display currency for reference
 //       }
 //     });
     
@@ -724,7 +724,7 @@ export const clearCart = async (req: Request, res: Response): Promise<any> => {
 //       message: 'Checkout initiated successfully',
 //       booking: booking,
 //       totalAmount: displayCart.totalAmount, // Display in requested currency
-//       baseCurrency: 'USD',
+//       baseCurrency: 'AED',
 //       sessionId: sessionId,
 //       stripeSessionUrl: stripeSession.url,
 //       cartId: cartId
@@ -763,7 +763,7 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
     const { email, phoneNumber, firstName, lastName, title,comment  } = req.body;
     
     // Properly handle currency query parameter
-    const currency = typeof req.query.currency === 'string' ? req.query.currency : 'USD';
+    const currency = typeof req.query.currency === 'string' ? req.query.currency : 'AED';
     const sessionId = typeof req.query.sessionid === 'string' ? req.query.sessionid : undefined;
     
     // Validate required fields
@@ -790,7 +790,7 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
     }
 
     // Validate currency if provided
-    if (currency !== 'USD') {
+    if (currency !== 'AED') {
       if (!(await isValidCurrency(currency))) {
         return res.status(400).json({
           message: 'Invalid currency code',
@@ -826,8 +826,8 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
     let processedCart = cart;
     let currencyInfo = null;
     
-    if (currency !== 'USD') {
-      const conversionResult = await convertCartCurrency(cartId, currency, 'USD');
+    if (currency !== 'AED') {
+      const conversionResult = await convertCartCurrency(cartId, currency, 'AED');
       if (conversionResult.success) {
         processedCart = conversionResult.data as any;
         currencyInfo = conversionResult.currencyInfo;
@@ -841,14 +841,14 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
       }
     }
 
-    // Create booking items from original cart (store in USD for consistency)
+    // Create booking items from original cart (store in AED for consistency)
     const bookingItems = cart.items.map(item => ({
       activity: item.activity._id,
       deal: item.deal._id,
       bookingDate: item.bookingDate,
       numberOfAdults: item.numberOfAdults,
       numberOfChildren: item.numberOfChildren,
-      adultPrice: item.adultPrice, // Store original USD prices
+      adultPrice: item.adultPrice, // Store original AED prices
       childPrice: item.childPrice,
       subtotal: item.subtotal,
       // Store activity and deal names for reference
@@ -856,11 +856,11 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
       dealTitle: (item.deal as any).title
     }));
 
-    // Create booking record (store in USD for consistency)
+    // Create booking record (store in AED for consistency)
     const booking = new Booking({
       cart: cart._id,
       items: bookingItems,
-      totalPrice: cart.totalAmount, // Store in USD
+      totalPrice: cart.totalAmount, // Store in AED
       email,
       phoneNumber,
       bookingReference: generateBookingReference(),
@@ -907,7 +907,7 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
       booking: booking,
       totalAmount: processedCart.totalAmount, // Amount in requested currency
       currency: currency,
-      baseCurrency: 'USD',
+      baseCurrency: 'AED',
       sessionId: sessionId,
       stripeSessionUrl: stripeSession.url,
       cartId: cartId

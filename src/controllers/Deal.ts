@@ -106,7 +106,7 @@ export const getDealsByActivity = async (req: Request, res: Response): Promise<a
     }
 
     // Validate currency if provided
-    const targetCurrency = currency as string || 'USD';
+    const targetCurrency = currency as string || 'AED';
     if (currency && !(await isValidCurrency(targetCurrency))) {
       return res.status(400).json({ message: 'Invalid currency code' });
     }
@@ -136,7 +136,7 @@ export const getDealsByActivity = async (req: Request, res: Response): Promise<a
     const convertedResponse = await getDealsWithCurrencyConversion(
       deals,
       targetCurrency,
-      'USD', // assuming base currency is USD
+      'AED', // assuming base currency is AED
       filterDate
     );
 
@@ -167,7 +167,7 @@ export const getDealById = async (req: Request, res: Response): Promise<any> => 
     }
 
     // Validate currency if provided
-    const targetCurrency = currency as string || 'USD';
+    const targetCurrency = currency as string || 'AED';
     if (currency && !(await isValidCurrency(targetCurrency))) {
       return res.status(400).json({ message: 'Invalid currency code' });
     }
@@ -184,7 +184,7 @@ export const getDealById = async (req: Request, res: Response): Promise<any> => 
     const convertedDeal = await convertDealWithCleanResponse(
       deal,
       targetCurrency,
-      'USD' // assuming base currency is USD
+      'AED' // assuming base currency is AED
     );
 
     res.status(200).json({
@@ -207,7 +207,7 @@ export const getAllDeals = async (req: Request, res: Response): Promise<any> => 
     const { currency, date } = req.query;
 
     // Validate currency if provided
-    const targetCurrency = currency as string || 'USD';
+    const targetCurrency = currency as string || 'AED';
     if (currency && !(await isValidCurrency(targetCurrency))) {
       return res.status(400).json({ message: 'Invalid currency code' });
     }
@@ -237,7 +237,7 @@ export const getAllDeals = async (req: Request, res: Response): Promise<any> => 
     const convertedResponse = await getDealsWithCurrencyConversion(
       deals,
       targetCurrency,
-      'USD', // assuming base currency is USD
+      'AED', // assuming base currency is AED
       filterDate
     );
 
@@ -546,7 +546,7 @@ export const getDealsPricingByActivityAndDate = async (req: Request, res: Respon
     }
 
     // Validate currency if provided
-    const targetCurrency = currency as string || 'USD';
+    const targetCurrency = currency as string || 'AED';
     if (currency && !(await isValidCurrency(targetCurrency))) {
       return res.status(400).json({ message: 'Invalid currency code' });
     }
@@ -646,7 +646,7 @@ export const getDealsPricingByActivityAndDate = async (req: Request, res: Respon
         description: deal.activityDetails.description,
         images: deal.activityDetails.images || []
       } : null,
-      baseCurrency: deal.baseCurrency || 'USD',
+      baseCurrency: deal.baseCurrency || 'AED',
       createdAt: deal.createdAt,
       updatedAt: deal.updatedAt
     }));
@@ -655,7 +655,7 @@ export const getDealsPricingByActivityAndDate = async (req: Request, res: Respon
     const convertedResponse = await convertDealsWithCleanResponse(
       transformedDeals,
       targetCurrency,
-      'USD' // assuming base currency is USD
+      'AED' // assuming base currency is AED
     );
 
     // Transform the result to match the original expected format
@@ -710,7 +710,7 @@ export const getBestDealPricing = async (req: Request, res: Response): Promise<a
     }
 
     // Validate currency if provided
-    const targetCurrency = currency as string || 'USD';
+    const targetCurrency = currency as string || 'AED';
     if (currency && !(await isValidCurrency(targetCurrency))) {
       return res.status(400).json({ message: 'Invalid currency code' });
     }
@@ -732,7 +732,7 @@ export const getBestDealPricing = async (req: Request, res: Response): Promise<a
       deal,
       searchDate,
       targetCurrency,
-      'USD' // assuming base currency is USD
+      'AED' // assuming base currency is AED
     );
 
     // Check if pricing was found
@@ -773,5 +773,324 @@ export const getSupportedCurrenciesEndpoint = async (req: Request, res: Response
     });
   } catch (error) {
     handleError(res, error, 'Error retrieving supported currencies');
+  }
+};
+
+/**
+ * Add bulk pricing for a deal across multiple consecutive dates
+ * @param req Express request object
+ * @param res Express response object
+ */
+export const addBulkDealPricing = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { dealId } = req.params;
+    const { startDate, endDate, adultPrice, childPrice } = req.body;
+
+    // Validate deal ID
+    if (!isValidObjectId(dealId)) {
+      return res.status(400).json({ message: 'Invalid deal ID' });
+    }
+
+    // Validate required fields
+    if (!startDate || !endDate || adultPrice === undefined || childPrice === undefined) {
+      return res.status(400).json({ 
+        message: 'Missing required fields: startDate, endDate, adultPrice, childPrice' 
+      });
+    }
+
+    // Validate and parse dates
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return res.status(400).json({ message: 'Invalid date format' });
+    }
+
+    // Ensure start date is not after end date
+    if (start > end) {
+      return res.status(400).json({ 
+        message: 'Start date cannot be after end date' 
+      });
+    }
+
+    // Validate pricing values
+    if (adultPrice < 0 || childPrice < 0) {
+      return res.status(400).json({ 
+        message: 'Pricing values cannot be negative' 
+      });
+    }
+
+    // Check if deal exists
+    const deal = await Deal.findById(dealId);
+    if (!deal) {
+      return res.status(404).json({ message: 'Deal not found' });
+    }
+
+    // Generate array of dates between start and end date (inclusive)
+    const dates: Date[] = [];
+    const currentDate = new Date(start);
+    
+    while (currentDate <= end) {
+      dates.push(new Date(currentDate));
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    // Create pricing entries for each date
+    const pricingEntries = dates.map(date => ({
+      date: new Date(date.setHours(0, 0, 0, 0)), // Normalize to start of day
+      adultPrice: Number(adultPrice),
+      childPrice: Number(childPrice)
+    }));
+
+    // Check for existing pricing on these dates
+    const existingDates = deal.pricing
+      .filter(p => {
+        const pricingDate = new Date(p.date);
+        return dates.some(d => 
+          pricingDate.getTime() === d.getTime()
+        );
+      })
+      .map(p => p.date.toISOString().split('T')[0]);
+
+    if (existingDates.length > 0) {
+      return res.status(400).json({ 
+        message: 'Pricing already exists for some dates',
+        existingDates: existingDates,
+        suggestion: 'Use update endpoint to modify existing pricing or choose different dates'
+      });
+    }
+
+    // Add new pricing entries to the deal
+    deal.pricing.push(...pricingEntries);
+
+    // Sort pricing by date to maintain order
+    deal.pricing.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // Save the updated deal
+    await deal.save();
+
+    res.status(200).json({
+      message: 'Bulk pricing added successfully',
+      dealId: dealId,
+      dateRange: {
+        startDate: startDate,
+        endDate: endDate,
+        totalDays: dates.length
+      },
+      pricing: {
+        adultPrice: adultPrice,
+        childPrice: childPrice
+      },
+      addedDates: dates.map(date => date.toISOString().split('T')[0])
+    });
+
+  } catch (error) {
+    handleError(res, error, 'Error adding bulk deal pricing');
+  }
+};
+
+/**
+ * Update bulk pricing for a deal across multiple consecutive dates
+ * @param req Express request object
+ * @param res Express response object
+ */
+export const updateBulkDealPricing = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { dealId } = req.params;
+    const { startDate, endDate, adultPrice, childPrice, overwrite = false } = req.body;
+
+    // Validate deal ID
+    if (!isValidObjectId(dealId)) {
+      return res.status(400).json({ message: 'Invalid deal ID' });
+    }
+
+    // Validate required fields
+    if (!startDate || !endDate || adultPrice === undefined || childPrice === undefined) {
+      return res.status(400).json({ 
+        message: 'Missing required fields: startDate, endDate, adultPrice, childPrice' 
+      });
+    }
+
+    // Validate and parse dates
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return res.status(400).json({ message: 'Invalid date format' });
+    }
+
+    // Ensure start date is not after end date
+    if (start > end) {
+      return res.status(400).json({ 
+        message: 'Start date cannot be after end date' 
+      });
+    }
+
+    // Validate pricing values
+    if (adultPrice < 0 || childPrice < 0) {
+      return res.status(400).json({ 
+        message: 'Pricing values cannot be negative' 
+      });
+    }
+
+    // Check if deal exists
+    const deal = await Deal.findById(dealId);
+    if (!deal) {
+      return res.status(404).json({ message: 'Deal not found' });
+    }
+
+    // Generate array of dates between start and end date (inclusive)
+    const dates: Date[] = [];
+    const currentDate = new Date(start);
+    
+    while (currentDate <= end) {
+      dates.push(new Date(currentDate));
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    let updatedCount = 0;
+    let addedCount = 0;
+
+    // Process each date
+    dates.forEach(date => {
+      const normalizedDate = new Date(date.setHours(0, 0, 0, 0));
+      
+      // Find existing pricing entry for this date
+      const existingIndex = deal.pricing.findIndex(p => 
+        new Date(p.date).getTime() === normalizedDate.getTime()
+      );
+
+      if (existingIndex !== -1) {
+        // Update existing pricing
+        if (overwrite) {
+          deal.pricing[existingIndex].adultPrice = Number(adultPrice);
+          deal.pricing[existingIndex].childPrice = Number(childPrice);
+          updatedCount++;
+        }
+      } else {
+        // Add new pricing entry
+        deal.pricing.push({
+          date: normalizedDate,
+          adultPrice: Number(adultPrice),
+          childPrice: Number(childPrice)
+        });
+        addedCount++;
+      }
+    });
+
+    // Sort pricing by date to maintain order
+    deal.pricing.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // Save the updated deal
+    await deal.save();
+
+    res.status(200).json({
+      message: 'Bulk pricing updated successfully',
+      dealId: dealId,
+      dateRange: {
+        startDate: startDate,
+        endDate: endDate,
+        totalDays: dates.length
+      },
+      pricing: {
+        adultPrice: adultPrice,
+        childPrice: childPrice
+      },
+      results: {
+        updatedCount,
+        addedCount,
+        totalProcessed: dates.length
+      },
+      processedDates: dates.map(date => date.toISOString().split('T')[0])
+    });
+
+  } catch (error) {
+    handleError(res, error, 'Error updating bulk deal pricing');
+  }
+};
+
+/**
+ * Delete bulk pricing for a deal across multiple consecutive dates
+ * @param req Express request object
+ * @param res Express response object
+ */
+export const deleteBulkDealPricing = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { dealId } = req.params;
+    const { startDate, endDate } = req.body;
+
+    // Validate deal ID
+    if (!isValidObjectId(dealId)) {
+      return res.status(400).json({ message: 'Invalid deal ID' });
+    }
+
+    // Validate required fields
+    if (!startDate || !endDate) {
+      return res.status(400).json({ 
+        message: 'Missing required fields: startDate, endDate' 
+      });
+    }
+
+    // Validate and parse dates
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return res.status(400).json({ message: 'Invalid date format' });
+    }
+
+    // Ensure start date is not after end date
+    if (start > end) {
+      return res.status(400).json({ 
+        message: 'Start date cannot be after end date' 
+      });
+    }
+
+    // Check if deal exists
+    const deal = await Deal.findById(dealId);
+    if (!deal) {
+      return res.status(404).json({ message: 'Deal not found' });
+    }
+
+    // Generate array of dates between start and end date (inclusive)
+    const dates: Date[] = [];
+    const currentDate = new Date(start);
+    
+    while (currentDate <= end) {
+      dates.push(new Date(currentDate));
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    // Remove pricing entries for the specified date range
+    const originalLength = deal.pricing.length;
+    deal.pricing = deal.pricing.filter(p => {
+      const pricingDate = new Date(p.date);
+      return !dates.some(d => 
+        pricingDate.getTime() === new Date(d.setHours(0, 0, 0, 0)).getTime()
+      );
+    });
+
+    const deletedCount = originalLength - deal.pricing.length;
+
+    // Save the updated deal
+    await deal.save();
+
+    res.status(200).json({
+      message: 'Bulk pricing deleted successfully',
+      dealId: dealId,
+      dateRange: {
+        startDate: startDate,
+        endDate: endDate,
+        totalDays: dates.length
+      },
+      results: {
+        deletedCount,
+        remainingPricingEntries: deal.pricing.length
+      },
+      deletedDates: dates.map(date => date.toISOString().split('T')[0])
+    });
+
+  } catch (error) {
+    handleError(res, error, 'Error deleting bulk deal pricing');
   }
 };

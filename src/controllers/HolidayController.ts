@@ -8,7 +8,7 @@ import { Country } from "../models/Country";
 import { convertPackagesWithCleanResponse, convertPackageWithCleanResponse } from "../services/currencyExchangePackage";
 export const getAllPackages = async (req: Request, res: Response): Promise<void> => {
   try {
-    const currency = req.query.currency as string || 'USD';
+    const currency = req.query.currency as string || 'AED';
     
     const packages = await HolidayPackage.find().populate('destination').populate('itinerary.activities')
    .lean() // Convert to plain JavaScript object for easier manipulation
@@ -27,7 +27,7 @@ export const getAllPackages = async (req: Request, res: Response): Promise<void>
 export const getPackageById = async (req: Request, res: Response): Promise<void> => {
   try {
     const packageId = req.params.id;
-    const currency = req.query.currency as string || 'USD';
+    const currency = req.query.currency as string || 'AED';
     
     if (!mongoose.Types.ObjectId.isValid(packageId)) {
       res.status(400).json({ success: false, error: "Invalid package ID format" });
@@ -405,7 +405,7 @@ export const getPackagesByDestination = async (req: Request, res: Response): Pro
     try {
       const destinationId = req.params.destinationId;
       const packageType = req.query.type as string;
-      const currency = req.query.currency as string || 'USD';
+      const currency = req.query.currency as string || 'AED';
       
       if (!mongoose.Types.ObjectId.isValid(destinationId)) {
         res.status(400).json({ success: false, error: "Invalid destination ID format" });
@@ -454,7 +454,7 @@ export const getPackagesByDestinationName = async (req: Request, res: Response):
     try {
       const destinationName = req.params.destinationName;
       const packageType = req.query.type as string;
-      const currency = req.query.currency as string || 'USD';
+      const currency = req.query.currency as string || 'AED';
       
       // Find the destination by name first
       var destination = await City.findOne({ 
@@ -510,7 +510,7 @@ export const getPackagesByDestinationName = async (req: Request, res: Response):
 export const getPackagesByType = async (req: Request, res: Response): Promise<void> => {
   try {
     const type = req.params.type;
-    const currency = req.query.currency as string || 'USD';
+    const currency = req.query.currency as string || 'AED';
     
     const packages = await HolidayPackage.find({ type })
       .populate('destination');
