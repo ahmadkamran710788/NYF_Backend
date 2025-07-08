@@ -4,12 +4,87 @@ import { Customer } from "../models/Customer";
 import mongoose from "mongoose";
 
 // Get all customers
+// export const getAllCustomers = async (req: Request, res: Response): Promise<any> => {
+//   try {
+//     const { 
+//       search,
+//       page = 1, 
+//       limit = 25,
+//       sortBy = 'firstName',
+//       sortOrder = 'asc',
+//       status,
+//       approved,
+//       newsletter,
+//       country
+//     } = req.query;
+
+//     // Build filter based on search query and filters
+//     const filter: any = {};
+    
+//     if (search) {
+//       const searchRegex = new RegExp(String(search), 'i');
+//       filter.$or = [
+//         { firstName: searchRegex },
+//         { lastName: searchRegex },
+//         { email: searchRegex },
+//         { phone: searchRegex },
+//         { passport: searchRegex },
+//         { trnNumber: searchRegex },
+//         { address: searchRegex },
+//         { country: searchRegex }
+//       ];
+//     }
+
+//     // Add status filters
+//     if (status !== undefined) {
+//       filter.status = status === 'true';
+//     }
+//     if (approved !== undefined) {
+//       filter.approved = approved === 'true';
+//     }
+//     if (newsletter !== undefined) {
+//       filter.newsletter = newsletter === 'true';
+//     }
+//     if (country) {
+//       filter.country = new RegExp(String(country), 'i');
+//     }
+
+//     // Build sort object
+//     const sort: any = {};
+//     sort[String(sortBy)] = sortOrder === 'desc' ? -1 : 1;
+
+//     // Calculate pagination
+//     const skip = (Number(page) - 1) * Number(limit);
+    
+//     // Execute query
+//     const customers = await Customer.find(filter)
+//       .sort(sort)
+//       .skip(skip)
+//       .limit(Number(limit));
+
+//     // Get total count for pagination
+//     const totalCustomers = await Customer.countDocuments(filter);
+    
+//     res.status(200).json({
+//       success: true,
+//       count: customers.length,
+//       total: totalCustomers,
+//       totalPages: Math.ceil(totalCustomers / Number(limit)),
+//       currentPage: Number(page),
+//       data: customers,
+//     });
+//   } catch (error: any) {
+//     res.status(500).json({
+//       success: false,
+//       message: "Error fetching customers",
+//       error: error.message,
+//     });
+//   }
+// };
 export const getAllCustomers = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { 
+    const {
       search,
-      page = 1, 
-      limit = 25,
       sortBy = 'firstName',
       sortOrder = 'asc',
       status,
@@ -53,24 +128,12 @@ export const getAllCustomers = async (req: Request, res: Response): Promise<any>
     const sort: any = {};
     sort[String(sortBy)] = sortOrder === 'desc' ? -1 : 1;
 
-    // Calculate pagination
-    const skip = (Number(page) - 1) * Number(limit);
-    
-    // Execute query
-    const customers = await Customer.find(filter)
-      .sort(sort)
-      .skip(skip)
-      .limit(Number(limit));
+    // Execute query without pagination
+    const customers = await Customer.find(filter).sort(sort);
 
-    // Get total count for pagination
-    const totalCustomers = await Customer.countDocuments(filter);
-    
     res.status(200).json({
       success: true,
       count: customers.length,
-      total: totalCustomers,
-      totalPages: Math.ceil(totalCustomers / Number(limit)),
-      currentPage: Number(page),
       data: customers,
     });
   } catch (error: any) {
@@ -81,7 +144,6 @@ export const getAllCustomers = async (req: Request, res: Response): Promise<any>
     });
   }
 };
-
 // Get customer by ID
 export const getCustomerById = async (req: Request, res: Response): Promise<any> => {
   try {
