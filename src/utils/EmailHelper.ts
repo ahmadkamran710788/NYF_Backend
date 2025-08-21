@@ -22,8 +22,8 @@ export const sendEmailNotification = async (contact: IContact): Promise<void> =>
 
     // Email content
     const mailOptions = {
-      from: "ahmadkamran710788@gmail.com",
-      to: "ahmadkamran710788@gmail.com" ,
+      from:  `${process.env.NODEMAILER_EMAIL}`,
+      to:  `${process.env.NODEMAILER_EMAIL}` ,
       subject: 'NYF Contact Form Submission',
       html: `
         <h3>NYF Contact Form Submission </h3>
