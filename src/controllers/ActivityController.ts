@@ -4,6 +4,7 @@ import { Activity, ActivityCategory } from "../models/Activity";
 import { City } from "../models/City";
 import { Country } from "../models/Country";
 import { Continent } from "../models/Continent";
+import {Deal} from '../models/Deal'
 import mongoose from "mongoose";
 import { uploadToCloudinary } from "../utils/CloudinaryHelper";
 import {convertActivities} from "../services/currencyService"
@@ -1231,6 +1232,9 @@ export const deleteActivityById = async (
         message: "Activity not found",
       });
     }
+
+    const deletedDeals = await Deal.deleteMany({ activity: activityId });
+    console.log(`Deleted ${deletedDeals.deletedCount} deals associated with activity ${activityId}`);
 
     // Delete the activity
     await Activity.findByIdAndDelete(activityId);
