@@ -118,7 +118,7 @@ const ActivitySchema = new Schema({
   isInstantConfirmation: { type: Boolean, default: false },
   isMobileTicket: { type: Boolean, default: false },
   isRefundable: { type: Boolean, default: false },
-  ratings: { type: Number, default: 0 },
+  ratings: { type: Number, default: 5 },
   reviewCount: { type: Number, default: 0 },
   costPrice: { type: Number, required: true }, // Stored in AED
 });
