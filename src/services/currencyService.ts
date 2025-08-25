@@ -182,6 +182,7 @@ export interface ConvertedActivity {
   isRefundable: boolean;
   ratings: number;
   reviewCount: number;
+   costPrice:number;
 }
 
 // In-memory cache for exchange rates
