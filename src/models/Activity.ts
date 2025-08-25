@@ -96,6 +96,7 @@ export interface IActivity extends Document {
   isRefundable: boolean;
   ratings: number;
   reviewCount: number;
+  costPrice:number;
 }
 
 const ActivitySchema = new Schema({
@@ -119,6 +120,7 @@ const ActivitySchema = new Schema({
   isRefundable: { type: Boolean, default: false },
   ratings: { type: Number, default: 0 },
   reviewCount: { type: Number, default: 0 },
+  costPrice: { type: Number, required: true }, // Stored in AED
 });
 
 export const Activity = mongoose.model<IActivity>("Activity", ActivitySchema);
