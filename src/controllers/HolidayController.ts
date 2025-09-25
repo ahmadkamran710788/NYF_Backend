@@ -14,6 +14,7 @@ export const getAllPackages = async (req: Request, res: Response): Promise<void>
    .lean() // Convert to plain JavaScript object for easier manipulation
       .exec();
     
+      
     // Convert prices to requested currency
     const convertedPackages = await convertPackagesWithCleanResponse(packages, currency);
     
@@ -27,7 +28,7 @@ export const getAllPackages = async (req: Request, res: Response): Promise<void>
 export const getPackageById = async (req: Request, res: Response): Promise<void> => {
   try {
     const packageId = req.params.id;
-    const currency = req.query.currency as string || 'AED';
+    
     
     if (!mongoose.Types.ObjectId.isValid(packageId)) {
       res.status(400).json({ success: false, error: "Invalid package ID format" });
@@ -45,6 +46,10 @@ export const getPackageById = async (req: Request, res: Response): Promise<void>
       res.status(404).json({ success: false, error: "Package not found" });
       return;
     }
+var currency = req.query.currency as string ;
+if(!currency){
+  currency = holidayPackage.baseCurrency;
+}
     
     // Convert prices to requested currency
     const convertedPackage = await convertPackageWithCleanResponse(holidayPackage, currency);
