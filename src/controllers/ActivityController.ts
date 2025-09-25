@@ -350,9 +350,10 @@ export const getActivitiesWithoutPagination = async (
       })
       .lean(); // Using lean() for better performance on read-only data
 
+      console.log('Activities before conversation :', activities[8]);
     // Convert activities to target currency
     const convertedActivities = await convertActivities(activities, targetCurrency);
-
+       console.log('Activities after conversation :', convertedActivities[8]);
     return res.status(200).json({
       success: true,
       count: convertedActivities.length,

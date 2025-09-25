@@ -1,163 +1,3 @@
-// import axios from "axios";
-
-// export interface ExchangeRates {
-//   [currency: string]: number;
-// }
-
-// export interface ConvertedActivity {
-//   _id: any;
-//   name: string;
-//   category: string;
-//   city: any;
-//   description: string;
-//   images: string[];
-//   originalPrice: number; // Converted price
-//   discountPrice: number; // Converted price
-//   baseCurrency: string; // Target currency
-//   duration: string;
-//   includes: string[];
-//   highlights: string[];
-//   isInstantConfirmation: boolean;
-//   isMobileTicket: boolean;
-//   isRefundable: boolean;
-//   ratings: number;
-//   reviewCount: number;
-// }
-
-// // In-memory cache for exchange rates
-// let exchangeRatesCache: ExchangeRates = {};
-// let lastUpdated: Date | null = null;
-// const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
-
-// // Fetch exchange rates from API
-// const fetchExchangeRates = async (): Promise<ExchangeRates> => {
-//   try {
-//     // Using exchangerate-api.com (free tier available)
-//     const response = await axios.get('https://api.exchangerate-api.com/v4/latest/USD');
-//     return response.data.rates;
-//   } catch (error) {
-//     console.error('Failed to fetch exchange rates:', error);
-//     // Fallback rates (you should implement proper error handling)
-//     return {
-//       USD: 1,
-//       EUR: 0.85,
-//       GBP: 0.73,
-//       AED: 3.67,
-//       SAR: 3.75,
-//       QAR: 3.64,
-//       KWD: 0.30,
-//       BHD: 0.38,
-//       OMR: 0.38,
-//       JPY: 110,
-//       INR: 74,
-//       CAD: 1.25,
-//       AUD: 1.35,
-//       CNY: 6.45,
-//     };
-//   }
-// };
-
-// // Get current exchange rates (with caching)
-// export const getExchangeRates = async (): Promise<ExchangeRates> => {
-//   const now = new Date();
-  
-//   if (!lastUpdated || (now.getTime() - lastUpdated.getTime()) > CACHE_DURATION) {
-//     exchangeRatesCache = await fetchExchangeRates();
-//     lastUpdated = now;
-//   }
-  
-//   return exchangeRatesCache;
-// };
-
-// // Convert amount from USD to target currency
-// export const convertFromUSD = async (amount: number, targetCurrency: string): Promise<number> => {
-//   if (targetCurrency === 'USD') {
-//     return amount;
-//   }
-
-//   const rates = await getExchangeRates();
-//   const rate = rates[targetCurrency.toUpperCase()];
-  
-//   if (!rate) {
-//     throw new Error(`Exchange rate not found for currency: ${targetCurrency}`);
-//   }
-
-//   return Math.round((amount * rate) * 100) / 100; // Round to 2 decimal places
-// };
-
-// // Convert amount from any currency to USD
-// export const convertToUSD = async (amount: number, fromCurrency: string): Promise<number> => {
-//   if (fromCurrency === 'USD') {
-//     return amount;
-//   }
-
-//   const rates = await getExchangeRates();
-//   const rate = rates[fromCurrency.toUpperCase()];
-  
-//   if (!rate) {
-//     throw new Error(`Exchange rate not found for currency: ${fromCurrency}`);
-//   }
-
-//   return Math.round((amount / rate) * 100) / 100; // Round to 2 decimal places
-// };
-
-// // Convert a single activity to target currency
-// export const convertActivity = async (activity: any, targetCurrency: string): Promise<ConvertedActivity> => {
-//   const convertedOriginalPrice = await convertFromUSD(
-//     activity.originalPrice,
-//     targetCurrency
-//   );
-  
-//   const convertedDiscountPrice = await convertFromUSD(
-//     activity.discountPrice,
-//     targetCurrency
-//   );
-
-//   return {
-//     ...activity,
-//     originalPrice: convertedOriginalPrice,
-//     discountPrice: convertedDiscountPrice,
-//     baseCurrency: targetCurrency.toUpperCase(),
-//   };
-// };
-
-// // Convert multiple activities to target currency
-// export const convertActivities = async (activities: any[], targetCurrency: string): Promise<ConvertedActivity[]> => {
-//   const convertedActivities = await Promise.all(
-//     activities.map(activity => convertActivity(activity, targetCurrency))
-//   );
-//   return convertedActivities;
-// };
-
-// // Helper function to get supported currencies
-// export const getSupportedCurrencies = async (): Promise<string[]> => {
-//   const rates = await getExchangeRates();
-//   return Object.keys(rates);
-// };
-
-// // Helper function to format price with currency symbol
-// export const formatPrice = (amount: number, currency: string): string => {
-//   const currencySymbols: { [key: string]: string } = {
-//     USD: '$',
-//     EUR: '€',
-//     GBP: '£',
-//     AED: 'د.إ',
-//     SAR: '﷼',
-//     QAR: 'ر.ق',
-//     KWD: 'د.ك',
-//     BHD: '.د.ب',
-//     OMR: 'ر.ع.',
-//     JPY: '¥',
-//     INR: '₹',
-//     CAD: 'C$',
-//     AUD: 'A$',
-//     CNY: '¥',
-//   };
-
-//   const symbol = currencySymbols[currency.toUpperCase()] || currency.toUpperCase();
-//   return `${symbol}${amount.toFixed(2)}`;
-// };
-
 import axios from "axios";
 
 export interface ExchangeRates {
@@ -173,7 +13,9 @@ export interface ConvertedActivity {
   images: string[];
   originalPrice: number; // Converted price
   discountPrice: number; // Converted price
+  costPrice: number; // Converted price - FIXED: Added this conversion
   baseCurrency: string; // Target currency
+  sourceCurrency?: string; // ADDED: To track original currency
   duration: string;
   includes: string[];
   highlights: string[];
@@ -182,7 +24,6 @@ export interface ConvertedActivity {
   isRefundable: boolean;
   ratings: number;
   reviewCount: number;
-   costPrice:number;
 }
 
 // In-memory cache for exchange rates
@@ -190,31 +31,38 @@ let exchangeRatesCache: ExchangeRates = {};
 let lastUpdated: Date | null = null;
 const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
 
-// Fetch exchange rates from API (AED as base currency)
+// Fetch exchange rates from API (USD as base currency for more reliable rates)
 const fetchExchangeRates = async (): Promise<ExchangeRates> => {
   try {
-    // Using exchangerate-api.com with AED as base currency
-    const response = await axios.get('https://api.exchangerate-api.com/v4/latest/AED');
+    // Using USD as base currency is more reliable for exchange rate APIs
+    const response = await axios.get('https://api.exchangerate-api.com/v4/latest/USD');
+    
+    // Log the fetched rates for debugging
+    console.log('Fetched exchange rates:', response.data.rates);
+    
     return response.data.rates;
   } catch (error) {
     console.error('Failed to fetch exchange rates:', error);
-    // Fallback rates with AED as base (1 AED = X other currencies)
-    return {
-      AED: 1,
-      USD: 0.27, // 1 AED ≈ 0.27 USD
-      EUR: 0.23,
-      GBP: 0.20,
-      SAR: 1.02,
-      QAR: 0.99,
-      KWD: 0.08,
-      BHD: 0.10,
-      OMR: 0.10,
-      JPY: 30,
-      INR: 20,
-      CAD: 0.34,
-      AUD: 0.37,
-      CNY: 1.76,
+    // Enhanced fallback rates with more accurate values
+    const fallbackRates = {
+      USD: 1,
+      AED: 3.67,
+      EUR: 0.85,
+      GBP: 0.73,
+      SAR: 3.75,
+      QAR: 3.64,
+      KWD: 0.30,
+      BHD: 0.38,
+      OMR: 0.38,
+      JPY: 149.50,
+      INR: 83.25,
+      CAD: 1.36,
+      AUD: 1.52,
+      CNY: 7.24,
     };
+    
+    console.log('Using fallback exchange rates:', fallbackRates);
+    return fallbackRates;
   }
 };
 
@@ -223,80 +71,149 @@ export const getExchangeRates = async (): Promise<ExchangeRates> => {
   const now = new Date();
   
   if (!lastUpdated || (now.getTime() - lastUpdated.getTime()) > CACHE_DURATION) {
+    console.log('Fetching fresh exchange rates...');
     exchangeRatesCache = await fetchExchangeRates();
     lastUpdated = now;
+  } else {
+    console.log('Using cached exchange rates');
   }
   
   return exchangeRatesCache;
 };
 
-// Convert amount from AED to target currency
-export const convertFromAED = async (amount: number, targetCurrency: string): Promise<number> => {
-  if (targetCurrency === 'AED') {
+// Convert amount between any two currencies
+export const convertCurrency = async (
+  amount: number, 
+  fromCurrency: string, 
+  toCurrency: string
+): Promise<number> => {
+  if (fromCurrency.toUpperCase() === toCurrency.toUpperCase()) {
     return amount;
   }
 
   const rates = await getExchangeRates();
-  const rate = rates[targetCurrency.toUpperCase()];
+  console.log('Available exchange rates:', rates);
   
-  if (!rate) {
-    throw new Error(`Exchange rate not found for currency: ${targetCurrency}`);
+  const fromRate = rates[fromCurrency.toUpperCase()];
+  const toRate = rates[toCurrency.toUpperCase()];
+  
+  console.log(`${fromCurrency} rate:`, fromRate);
+  console.log(`${toCurrency} rate:`, toRate);
+  
+  if (!fromRate) {
+    throw new Error(`Exchange rate not found for source currency: ${fromCurrency}`);
+  }
+  
+  if (!toRate) {
+    throw new Error(`Exchange rate not found for target currency: ${toCurrency}`);
   }
 
-  return Math.round((amount * rate) * 100) / 100; // Round to 2 decimal places
-};
-
-// Convert amount from any currency to AED
-export const convertToAED = async (amount: number, fromCurrency: string): Promise<number> => {
-  if (fromCurrency === 'AED') {
-    return amount;
-  }
-
-  const rates = await getExchangeRates();
-  const rate = rates[fromCurrency.toUpperCase()];
+  // FIXED: Proper conversion logic
+  // Since the API returns rates with USD as base currency:
+  // To convert FROM any currency TO USD: divide by the rate
+  // To convert FROM USD TO any currency: multiply by the rate
+  // To convert between non-USD currencies: convert through USD
   
-  if (!rate) {
-    throw new Error(`Exchange rate not found for currency: ${fromCurrency}`);
-  }
-
-  return Math.round((amount / rate) * 100) / 100; // Round to 2 decimal places
-};
-
-// Convert a single activity to target currency
-export const convertActivity = async (activity: any, targetCurrency: string): Promise<ConvertedActivity> => {
-  const convertedOriginalPrice = await convertFromAED(
-    activity.originalPrice,
-    targetCurrency
-  );
+  let convertedAmount: number;
   
-  const convertedDiscountPrice = await convertFromAED(
-    activity.discountPrice,
-    targetCurrency
-  );
-
-  return {
-    ...activity,
-    originalPrice: convertedOriginalPrice,
-    discountPrice: convertedDiscountPrice,
-    baseCurrency: targetCurrency.toUpperCase(),
-  };
+  if (fromCurrency.toUpperCase() === 'USD') {
+    // Converting FROM USD TO another currency
+    convertedAmount = amount * toRate;
+  } else if (toCurrency.toUpperCase() === 'USD') {
+    // Converting FROM another currency TO USD
+    convertedAmount = amount / fromRate;
+  } else {
+    // Converting between two non-USD currencies
+    // Step 1: Convert from source to USD
+    const usdAmount = amount / fromRate;
+    // Step 2: Convert from USD to target
+    convertedAmount = usdAmount * toRate;
+  }
+  
+  console.log(`Converting ${amount} ${fromCurrency} to ${toCurrency}: ${convertedAmount.toFixed(2)}`);
+  console.log(`Calculation: ${amount} ${fromCurrency} = ${convertedAmount.toFixed(2)} ${toCurrency}`);
+  
+  return Math.round(convertedAmount * 100) / 100; // Round to 2 decimal places
 };
 
-// Convert multiple activities to target currency
-export const convertActivities = async (activities: any[], targetCurrency: string): Promise<ConvertedActivity[]> => {
+// FIXED: Convert a single activity to target currency
+export const convertActivity = async (
+  activity: any, 
+  targetCurrency: string,
+  sourceCurrency?: string // Make it optional so we can detect it
+): Promise<ConvertedActivity> => {
+  
+  // CRITICAL FIX: Auto-detect source currency from activity data
+  const actualSourceCurrency = sourceCurrency || activity.baseCurrency || activity.sourceCurrency || 'USD';
+  
+  console.log(`Converting activity "${activity.name}" from ${actualSourceCurrency} to ${targetCurrency}`);
+  console.log(`Original prices - Original: ${activity.originalPrice}, Discount: ${activity.discountPrice}, Cost: ${activity.costPrice || 'N/A'}`);
+  console.log(`Activity baseCurrency: ${activity.baseCurrency}, sourceCurrency: ${activity.sourceCurrency}`);
+  
+  try {
+    const convertedOriginalPrice = await convertCurrency(
+      activity.originalPrice,
+      actualSourceCurrency,
+      targetCurrency
+    );
+    
+    const convertedDiscountPrice = await convertCurrency(
+      activity.discountPrice,
+      actualSourceCurrency,
+      targetCurrency
+    );
+    
+    // FIXED: Convert costPrice as well
+    const convertedCostPrice = activity.costPrice 
+      ? await convertCurrency(activity.costPrice, actualSourceCurrency, targetCurrency)
+      : 0;
+
+    const convertedActivity = {
+      ...activity,
+      originalPrice: convertedOriginalPrice,
+      discountPrice: convertedDiscountPrice,
+      costPrice: convertedCostPrice,
+      baseCurrency: targetCurrency.toUpperCase(),
+      sourceCurrency: actualSourceCurrency.toUpperCase(),
+    };
+    
+    console.log(`Converted prices - Original: ${convertedOriginalPrice}, Discount: ${convertedDiscountPrice}, Cost: ${convertedCostPrice}`);
+    
+    return convertedActivity;
+  } catch (error) {
+    console.error(`Error converting activity "${activity.name}":`, error);
+    throw error;
+  }
+};
+
+// FIXED: Convert multiple activities to target currency
+export const convertActivities = async (
+  activities: any[], 
+  targetCurrency: string,
+  sourceCurrency?: string // Make optional for auto-detection
+): Promise<ConvertedActivity[]> => {
+  
+  console.log(`Converting ${activities.length} activities to ${targetCurrency}`);
+  
   const convertedActivities = await Promise.all(
-    activities.map(activity => convertActivity(activity, targetCurrency))
+    activities.map((activity, index) => {
+      console.log(`Converting activity ${index + 1}/${activities.length}: ${activity.name}`);
+      // Let convertActivity auto-detect source currency if not provided
+      return convertActivity(activity, targetCurrency, sourceCurrency);
+    })
   );
+  
+  console.log(`Successfully converted ${convertedActivities.length} activities`);
   return convertedActivities;
 };
 
 // Helper function to get supported currencies
 export const getSupportedCurrencies = async (): Promise<string[]> => {
   const rates = await getExchangeRates();
-  return Object.keys(rates);
+  return Object.keys(rates).sort();
 };
 
-// Helper function to format price with currency symbol
+// Enhanced price formatting with better currency symbols
 export const formatPrice = (amount: number, currency: string): string => {
   const currencySymbols: { [key: string]: string } = {
     AED: 'د.إ',
@@ -316,5 +233,29 @@ export const formatPrice = (amount: number, currency: string): string => {
   };
 
   const symbol = currencySymbols[currency.toUpperCase()] || currency.toUpperCase();
-  return `${symbol}${amount.toFixed(2)}`;
+  
+  // Format with appropriate decimal places (some currencies don't use decimals)
+  const decimalPlaces = ['JPY', 'KRW', 'VND'].includes(currency.toUpperCase()) ? 0 : 2;
+  
+  return `${symbol}${amount.toFixed(decimalPlaces)}`;
+};
+
+// ADDED: Debug function to test conversion
+export const debugConversion = async (
+  amount: number,
+  fromCurrency: string,
+  toCurrency: string
+): Promise<void> => {
+  try {
+    const rates = await getExchangeRates();
+    console.log('Available rates:', Object.keys(rates));
+    console.log(`${fromCurrency} rate:`, rates[fromCurrency.toUpperCase()]);
+    console.log(`${toCurrency} rate:`, rates[toCurrency.toUpperCase()]);
+    
+    const converted = await convertCurrency(amount, fromCurrency, toCurrency);
+    console.log(`${amount} ${fromCurrency} = ${converted} ${toCurrency}`);
+    console.log(`Formatted: ${formatPrice(converted, toCurrency)}`);
+  } catch (error) {
+    console.error('Debug conversion error:', error);
+  }
 };
