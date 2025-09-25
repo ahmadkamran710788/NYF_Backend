@@ -705,7 +705,8 @@ export const addActivity = async (
       isInstantConfirmation,
       isMobileTicket,
       isRefundable,
-      costPrice
+      costPrice, 
+      baseCurrency
     } = req.body;
 
     // Validate city exists
@@ -773,7 +774,7 @@ export const addActivity = async (
       isInstantConfirmation,
       isMobileTicket,
       isRefundable,
-      baseCurrency: 'AED',
+      baseCurrency: baseCurrency || "AED",
       costPrice: costPrice // Always store in AED
     });
 
@@ -818,7 +819,8 @@ export const editActivity = async (
       isMobileTicket,
       isRefundable,
       removeImages, // Array of image URLs to remove
-      costPrice
+      costPrice,
+      baseCurrency
     } = req.body;
     const activityId = req.params.id;
 
@@ -915,6 +917,7 @@ console.log(req.body)
     if (isMobileTicket !== undefined) updateData.isMobileTicket = isMobileTicket;
     if (isRefundable !== undefined) updateData.isRefundable = isRefundable;
     if (costPrice !== undefined) updateData.costPrice = costPrice;
+    if(baseCurrency !== undefined) updateData.baseCurrency = baseCurrency
     
     // Always update images if we processed any add/remove operations
     updateData.images = currentImages;
