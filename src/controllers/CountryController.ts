@@ -124,6 +124,130 @@ export const addCountry = async (
     });
   }
 };
+
+export const editCountry = async (
+  req: MulterRequest,
+  res: Response
+): Promise<any> => {
+  try {
+    const { id } = req.params;
+    const { name, continentId, description } = req.body;
+    let image_url: string | undefined;
+
+    // Validate country ID
+    if (!id) {
+      res.status(400).json({
+        success: false,
+        message: "Country ID is required",
+      });
+      return;
+    }
+
+    console.log(id,"Country id ")
+    // Find the country
+    const country = await Country.findById(id);
+    if (!country) {
+      res.status(404).json({
+        success: false,
+        message: "Country not found",
+      });
+      return;
+    }
+
+    // If continentId is provided, validate it exists
+    if (continentId) {
+      const continent = await Continent.findById(continentId);
+      if (!continent) {
+        res.status(404).json({
+          success: false,
+          message: "Continent not found",
+        });
+        return;
+      }
+    }
+
+    // Check if name is being changed and if new name already exists in the target continent
+    const targetContinentId = continentId || country.continent;
+    if (name && (name !== country.name || continentId)) {
+      const existingCountry = await Country.findOne({
+        name,
+        continent: targetContinentId,
+        _id: { $ne: id } // Exclude current country from search
+      });
+      if (existingCountry) {
+        res.status(400).json({
+          success: false,
+          message: "Country with this name already exists in the target continent",
+        });
+        return;
+      }
+    }
+
+    // Handle image upload if file is present
+    if (req.file) {
+      try {
+        const filePath = req.file.path;
+        const uploadResult = await uploadToCloudinary(
+          filePath,
+          "country_images"
+        );
+        image_url = uploadResult.url;
+
+        // Optional: Clean up the temporary file
+        // await fs.unlink(filePath);
+      } catch (uploadError: any) {
+        res.status(400).json({
+          success: false,
+          message: "Error uploading image",
+          error: uploadError.message,
+        });
+        return;
+      }
+    }
+
+    // Handle continent change
+    const oldContinentId = country.continent;
+    const newContinentId = continentId;
+
+    if (newContinentId && newContinentId.toString() !== oldContinentId.toString()) {
+      // Remove country from old continent
+      await Continent.findByIdAndUpdate(oldContinentId, {
+        $pull: { countries: id }
+      });
+
+      // Add country to new continent
+      await Continent.findByIdAndUpdate(newContinentId, {
+        $push: { countries: id }
+      });
+    }
+
+    // Update fields only if provided
+    const updateData: any = {};
+    if (name) updateData.name = name;
+    if (continentId) updateData.continent = continentId;
+    if (description !== undefined) updateData.description = description;
+    if (image_url) updateData.image = image_url;
+
+    // Update the country
+    const updatedCountry = await Country.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true, runValidators: true }
+    ).populate('continent');
+
+    res.status(200).json({
+      success: true,
+      data: updatedCountry,
+      message: "Country updated successfully",
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: "Error updating country",
+      error: error.message,
+    });
+  }
+};
 // Get country by ID
 export const getCountryById = async (req: Request, res: Response): Promise<any> => {
   try {

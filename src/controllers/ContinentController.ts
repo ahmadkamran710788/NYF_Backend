@@ -98,7 +98,94 @@ export const addContinent = async (
   }
 };
 
+export const editContinent = async (
+  req: MulterRequest,
+  res: Response
+): Promise<any> => {
+  try {
+    const { id } = req.params;
+    const { name, description } = req.body;
+    let image_url: string | undefined;
 
+    // Validate continent ID
+    if (!id) {
+      res.status(400).json({
+        success: false,
+        message: "Continent ID is required",
+      });
+      return;
+    }
+
+    // Find the continent
+    const continent = await Continent.findById(id);
+    if (!continent) {
+      res.status(404).json({
+        success: false,
+        message: "Continent not found",
+      });
+      return;
+    }
+
+    // Check if name is being changed and if new name already exists
+    if (name && name !== continent.name) {
+      const existingContinent = await Continent.findOne({ name });
+      if (existingContinent) {
+        res.status(400).json({
+          success: false,
+          message: "Continent with this name already exists",
+        });
+        return;
+      }
+    }
+
+    // Handle image upload if file is present
+    if (req.file) {
+      try {
+        const filePath = req.file.path;
+        const uploadResult = await uploadToCloudinary(
+          filePath,
+          "continent_images"
+        );
+        image_url = uploadResult.url;
+
+        // Optional: Clean up the temporary file
+        // await fs.unlink(filePath);
+      } catch (uploadError: any) {
+        res.status(400).json({
+          success: false,
+          message: "Error uploading image",
+          error: uploadError.message,
+        });
+        return;
+      }
+    }
+
+    // Update fields only if provided
+    const updateData: any = {};
+    if (name) updateData.name = name;
+    if (description) updateData.description = description;
+    if (image_url) updateData.image = image_url;
+
+    // Update the continent
+    const updatedContinent = await Continent.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true, runValidators: true }
+    );
+
+    res.status(200).json({
+      success: true,
+      data: updatedContinent,
+      message: "Continent updated successfully",
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: "Error updating continent",
+      error: error.message,
+    });
+  }
+};
 export const deleteContinentById = async (req: Request, res: Response): Promise<any> => {
   const session = await mongoose.startSession();
   session.startTransaction();
