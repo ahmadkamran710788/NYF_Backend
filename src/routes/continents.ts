@@ -17,6 +17,7 @@ router.get("/:id", getContinentById);
 router.delete("/:id", deleteContinentById);
 router.put("/:id", upload.single("file"), editContinent);
 
+
 // @route   POST /api/continents
 // @desc    Add a new continent
 // @access  Private/Admin
