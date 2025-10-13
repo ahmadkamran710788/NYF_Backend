@@ -47,6 +47,22 @@ export interface CleanedComboOffer {
   seoContent?: CleanedSEOContent;
   createdAt?: Date;
   updatedAt?: Date;
+    addonExtra?: string;
+  childAdultPolicy?: string;
+  notSuitableFor?: string;
+  pickupTimeDropOffTime?: string;
+  openingHours?: string;
+  location?: string;
+  startingEndPoint?: string;
+  termsConditions?: string;
+  thingsToKnow?: string;
+  dressCode?: string;
+  howTo?: string;
+  bookingCutOffTime?: string;
+  howToRedeem?: string;
+  cancellationPolicy?: string;
+  attributes?: string[];
+
 }
 
 export interface ComboOfferCurrencyConversionResponse {
@@ -286,6 +302,21 @@ export const convertComboOfferWithCleanResponse = async (
     images: comboOffer.images,
     createdAt: comboOffer.createdAt,
     updatedAt: comboOffer.updatedAt,
+     addonExtra: comboOffer.addonExtra,
+  childAdultPolicy: comboOffer.childAdultPolicy,
+  notSuitableFor: comboOffer.notSuitableFor,
+  pickupTimeDropOffTime: comboOffer.pickupTimeDropOffTime,
+  openingHours: comboOffer.openingHours,
+  location: comboOffer.location,
+  startingEndPoint: comboOffer.startingEndPoint,
+  termsConditions:comboOffer.termsConditions,
+  thingsToKnow:comboOffer.thingsToKnow,
+  dressCode:comboOffer.dressCode,
+  howTo:comboOffer.howTo,
+  bookingCutOffTime:comboOffer.bookingCutOffTime,
+  howToRedeem:comboOffer.howToRedeem,
+  cancellationPolicy:comboOffer.cancellationPolicy,
+  attributes:comboOffer.attributes
   };
 };
 
