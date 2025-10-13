@@ -417,6 +417,125 @@ export const createComboOffer = async (
 /**
  * Update combo offer
  */
+// export const updateComboOffer = async (
+//   req: Request,
+//   res: Response
+// ): Promise<void> => {
+//   try {
+//     const { id } = req.params;
+//     const updateData = req.body;
+
+//     // Find combo offer
+//     const comboOffer = await ComboOffer.findById(id);
+//     if (!comboOffer) {
+//       res.status(404).json({ error: "Combo offer not found" });
+//       return;
+//     }
+
+//     // Validate price logic if prices are being updated
+//     if (
+//       updateData.discountedPrice !== undefined &&
+//       updateData.actualPrice !== undefined
+//     ) {
+//       if (parseFloat(updateData.discountedPrice) > parseFloat(updateData.actualPrice)) {
+//         res.status(400).json({
+//           error: "Discounted price cannot be greater than actual price",
+//         });
+//         return;
+//       }
+//     } else if (updateData.discountedPrice !== undefined) {
+//       const actualPrice = parseFloat(updateData.actualPrice || comboOffer.actualPrice);
+//       if (parseFloat(updateData.discountedPrice) > actualPrice) {
+//         res.status(400).json({
+//           error: "Discounted price cannot be greater than actual price",
+//         });
+//         return;
+//       }
+//     }
+
+//     // Validate activities if provided
+//     if (updateData.activities && Array.isArray(updateData.activities)) {
+//       await Promise.all(
+//         updateData.activities.map(async (activity: any) => {
+//           const tourExists = await Activity.findById(activity.tour);
+//           if (!tourExists) {
+//             throw new Error(`Activity with ID ${activity.tour} does not exist`);
+//           }
+//         })
+//       );
+//     }
+
+//     // Handle multiple image uploads
+//     if (req.files && Array.isArray(req.files) && req.files.length > 0) {
+//       const uploadedImages: string[] = [];
+
+//       for (let i = 0; i < req.files.length; i++) {
+//         const imageFile = req.files[i];
+//         const uploadResult = await uploadToCloudinary(
+//           imageFile.path,
+//           "combo-offers"
+//         );
+//         uploadedImages.push(uploadResult.url);
+
+//         if (i === 0) {
+//           updateData.featuredImage = uploadResult.url;
+//         }
+//       }
+
+//       updateData.images = uploadedImages;
+//     }
+
+//     // Normalize currency codes
+//     if (updateData.comboCurrency) {
+//       updateData.comboCurrency = updateData.comboCurrency.toUpperCase();
+//     }
+//     if (updateData.baseCurrency) {
+//       updateData.baseCurrency = updateData.baseCurrency.toUpperCase();
+//     }
+
+//     // Parse numeric fields if provided
+//     if (updateData.actualPrice !== undefined) {
+//       updateData.actualPrice = parseFloat(updateData.actualPrice);
+//     }
+//     if (updateData.discountedPrice !== undefined) {
+//       updateData.discountedPrice = parseFloat(updateData.discountedPrice);
+//     }
+//     if (updateData.costPrice !== undefined) {
+//       updateData.costPrice = parseFloat(updateData.costPrice);
+//     }
+
+//     // Update combo offer
+//     const updatedComboOffer = await ComboOffer.findByIdAndUpdate(id, updateData, {
+//       new: true,
+//       runValidators: true,
+//     }).populate("activities.tour", "name category description");
+
+//     if (!updatedComboOffer) {
+//       res.status(404).json({ error: "Combo offer not found" });
+//       return;
+//     }
+
+//     // Convert to clean response
+//     const convertedOffer = await convertComboOfferWithCleanResponse(
+//       updatedComboOffer,
+//       updatedComboOffer.baseCurrency
+//     );
+
+//     res.status(200).json({
+//       success: true,
+//       message: "Combo offer updated successfully",
+//       data: convertedOffer,
+//     });
+//   } catch (error: any) {
+//     console.error("Error updating combo offer:", error);
+//     res.status(400).json({
+//       error: "Failed to update combo offer",
+//       message: error.message,
+//     });
+//   }
+// };
+
+
 export const updateComboOffer = async (
   req: Request,
   res: Response
@@ -437,14 +556,19 @@ export const updateComboOffer = async (
       updateData.discountedPrice !== undefined &&
       updateData.actualPrice !== undefined
     ) {
-      if (parseFloat(updateData.discountedPrice) > parseFloat(updateData.actualPrice)) {
+      if (
+        parseFloat(updateData.discountedPrice) >
+        parseFloat(updateData.actualPrice)
+      ) {
         res.status(400).json({
           error: "Discounted price cannot be greater than actual price",
         });
         return;
       }
     } else if (updateData.discountedPrice !== undefined) {
-      const actualPrice = parseFloat(updateData.actualPrice || comboOffer.actualPrice);
+      const actualPrice = parseFloat(
+        updateData.actualPrice || comboOffer.actualPrice
+      );
       if (parseFloat(updateData.discountedPrice) > actualPrice) {
         res.status(400).json({
           error: "Discounted price cannot be greater than actual price",
@@ -455,14 +579,28 @@ export const updateComboOffer = async (
 
     // Validate activities if provided
     if (updateData.activities && Array.isArray(updateData.activities)) {
+      let parsedActivities = updateData.activities;
+      if (typeof updateData.activities === "string") {
+        try {
+          parsedActivities = JSON.parse(updateData.activities);
+        } catch (e) {
+          res.status(400).json({ error: "Invalid activities format" });
+          return;
+        }
+      }
+
       await Promise.all(
-        updateData.activities.map(async (activity: any) => {
+        parsedActivities.map(async (activity: any) => {
           const tourExists = await Activity.findById(activity.tour);
           if (!tourExists) {
-            throw new Error(`Activity with ID ${activity.tour} does not exist`);
+            throw new Error(
+              `Activity with ID ${activity.tour} does not exist`
+            );
           }
         })
       );
+
+      updateData.activities = parsedActivities;
     }
 
     // Handle multiple image uploads
@@ -503,6 +641,46 @@ export const updateComboOffer = async (
     if (updateData.costPrice !== undefined) {
       updateData.costPrice = parseFloat(updateData.costPrice);
     }
+    if (updateData.comboDiscount !== undefined) {
+      updateData.comboDiscount = parseFloat(updateData.comboDiscount);
+    }
+
+    // Parse array fields if they're strings
+    const arrayFields = [
+      "highlights",
+      "inclusions",
+      "exclusions",
+      "category",
+      "attributes",
+    ];
+    for (const field of arrayFields) {
+      if (updateData[field] && typeof updateData[field] === "string") {
+        try {
+          updateData[field] = JSON.parse(updateData[field]);
+        } catch (e) {
+          updateData[field] = [];
+        }
+      }
+    }
+
+    // Parse SEO content if it's a string
+    if (updateData.seoContent && typeof updateData.seoContent === "string") {
+      try {
+        updateData.seoContent = JSON.parse(updateData.seoContent);
+      } catch (e) {
+        delete updateData.seoContent;
+      }
+    }
+
+    // Parse boolean fields
+    if (updateData.isActive !== undefined) {
+      updateData.isActive =
+        updateData.isActive === "true" || updateData.isActive === true;
+    }
+    if (updateData.isPopular !== undefined) {
+      updateData.isPopular =
+        updateData.isPopular === "true" || updateData.isPopular === true;
+    }
 
     // Update combo offer
     const updatedComboOffer = await ComboOffer.findByIdAndUpdate(id, updateData, {
@@ -535,6 +713,119 @@ export const updateComboOffer = async (
   }
 };
 
+
+export const deleteComboOfferImages = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { imageUrls } = req.body;
+
+    // Validate input
+    if (!imageUrls || !Array.isArray(imageUrls) || imageUrls.length === 0) {
+      res.status(400).json({
+        error: "Invalid request",
+        message: "Please provide imageUrls as an array of image URLs to delete",
+      });
+      return;
+    }
+
+    // Find combo offer
+    const comboOffer = await ComboOffer.findById(id);
+    if (!comboOffer) {
+      res.status(404).json({ error: "Combo offer not found" });
+      return;
+    }
+
+    // Track which images were removed
+    const removedImages: string[] = [];
+    const notFoundImages: string[] = [];
+
+    // Remove images from the images array
+    if (comboOffer.images && Array.isArray(comboOffer.images)) {
+      comboOffer.images = comboOffer.images.filter((image: string) => {
+        if (imageUrls.includes(image)) {
+          removedImages.push(image);
+          return false;
+        }
+        return true;
+      });
+    }
+
+    // Check if any featured images need to be reset
+    if (
+      comboOffer.featuredImage &&
+      imageUrls.includes(comboOffer.featuredImage)
+    ) {
+      removedImages.push(comboOffer.featuredImage);
+
+      // Set new featured image to first remaining image
+      if (comboOffer.images && comboOffer.images.length > 0) {
+        comboOffer.featuredImage = comboOffer.images[0];
+      } else {
+        comboOffer.featuredImage = undefined;
+      }
+    }
+
+    // Check for images that were not found
+    for (const url of imageUrls) {
+      if (!removedImages.includes(url)) {
+        notFoundImages.push(url);
+      }
+    }
+
+    // Save the updated combo offer
+    await comboOffer.save();
+
+    // Fetch updated offer
+    // const updatedComboOffer = await ComboOffer.findById(id).populate(
+    //   "activities.tour",
+    //   "name category description"
+    // );
+
+    // // Convert to clean response
+    // const convertedOffer = await convertComboOfferWithCleanResponse(
+    //   updatedComboOffer,
+    //   updatedComboOffer.baseCurrency
+    // );
+
+
+    const updatedComboOffer = await ComboOffer.findById(id).populate(
+  "activities.tour",
+  "name category description"
+);
+
+if (!updatedComboOffer) {
+  // Handle the case when no document is found
+  res.status(404).json({ error: "Combo offer not found" });
+  return;
+}
+
+// Rest of your code that uses updatedComboOffer
+const convertedOffer = await convertComboOfferWithCleanResponse(
+  updatedComboOffer,
+  updatedComboOffer.baseCurrency
+);
+    res.status(200).json({
+      success: true,
+      message: "Images deleted successfully",
+      data: {
+        offer: convertedOffer,
+        deletedImages: removedImages,
+        notFoundImages: notFoundImages,
+        remainingImages: comboOffer.images || [],
+        remainingFeaturedImage: comboOffer.featuredImage,
+      },
+    });
+  } catch (error: any) {
+    console.error("Error deleting combo offer images:", error);
+    res.status(400).json({
+      error: "Failed to delete images",
+      message: error.message,
+    });
+  }
+};
 /**
  * Delete combo offer
  */

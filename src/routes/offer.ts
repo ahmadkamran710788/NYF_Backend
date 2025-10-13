@@ -68,6 +68,11 @@ router.put(
   comboOfferController.updateComboOffer
 );
 
+router.delete(
+  "/:id/images",
+  comboOfferController.deleteComboOfferImages
+);
+
 // Delete combo offer
 // Params: id
 // Example: DELETE /nyf/offer/123456
