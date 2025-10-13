@@ -62,6 +62,9 @@ export interface CleanedComboOffer {
   howToRedeem?: string;
   cancellationPolicy?: string;
   attributes?: string[];
+  costPrice?: number;
+  discountedPrice: number;
+   actualPrice: number;
 
 }
 
@@ -230,6 +233,99 @@ const convertComboActivity = async (
 };
 
 // Convert a single combo offer to target currency
+// export const convertComboOfferWithCleanResponse = async (
+//   comboOffer: any,
+//   targetCurrency: string,
+//   sourceCurrency?: string
+// ): Promise<CleanedComboOffer> => {
+//   const effectiveSourceCurrency = sourceCurrency || comboOffer.baseCurrency || 'AED';
+  
+//   // Convert all activities
+//   const convertedActivities = await Promise.all(
+//     (comboOffer.activities || []).map((activity: any) =>
+//       convertComboActivity(activity, effectiveSourceCurrency, targetCurrency)
+//     )
+//   );
+
+//   // Calculate totals
+//   const originalTotalPrice = convertedActivities.reduce((sum, activity) => {
+//     return sum + activity.tourLowestPrice;
+//   }, 0);
+
+//   let totalPrice: number;
+//   let totalSavings: number;
+//   let convertedDiscount: number;
+//   let convertedCostPrice: number;
+
+//   if (effectiveSourceCurrency === targetCurrency) {
+//     convertedDiscount = comboOffer.comboDiscount;
+//   } else if (effectiveSourceCurrency === 'AED') {
+//     convertedDiscount = await convertFromAED(comboOffer.comboDiscount, targetCurrency);
+//   } else if (targetCurrency === 'AED') {
+//     convertedDiscount = await convertToAED(comboOffer.comboDiscount, effectiveSourceCurrency);
+//   } else {
+//     const discountInAED = await convertToAED(comboOffer.comboDiscount, effectiveSourceCurrency);
+//     convertedDiscount = await convertFromAED(discountInAED, targetCurrency);
+//   }
+
+//   if (comboOffer.comboDiscountType === 'percentage') {
+//     totalSavings = originalTotalPrice * (comboOffer.comboDiscount / 100);
+//     totalPrice = originalTotalPrice - totalSavings;
+//     convertedDiscount = comboOffer.comboDiscount; // Percentage stays the same
+//   } else {
+//     totalSavings = convertedDiscount;
+//     totalPrice = originalTotalPrice - convertedDiscount;
+//   }
+
+//   return {
+//     _id: comboOffer._id,
+//     name: comboOffer.name,
+//     permalink: comboOffer.permalink,
+//     headerCaption: comboOffer.headerCaption,
+//     isPopular: comboOffer.isPopular,
+//     isActive: comboOffer.isActive,
+//     shortDescription: comboOffer.shortDescription,
+//     description: comboOffer.description,
+//     highlights: comboOffer.highlights || [],
+//     inclusions: comboOffer.inclusions || [],
+//     exclusions: comboOffer.exclusions || [],
+//     category: comboOffer.category || [],
+//     featuredImage: comboOffer.featuredImage,
+//     featuredVideo: comboOffer.featuredVideo,
+//     baseCurrency: targetCurrency.toUpperCase(),
+//     comboCurrency: targetCurrency.toUpperCase(),
+//     comboDiscount: convertedDiscount,
+//     comboDiscountType: comboOffer.comboDiscountType,
+//     country: comboOffer.country,
+//     city: comboOffer.city,
+//     activities: convertedActivities,
+//     totalPrice: Math.round(totalPrice * 100) / 100,
+//     totalSavings: Math.round(totalSavings * 100) / 100,
+//     originalTotalPrice: Math.round(originalTotalPrice * 100) / 100,
+//     seoContent: comboOffer.seoContent,
+//     images: comboOffer.images,
+//     createdAt: comboOffer.createdAt,
+//     updatedAt: comboOffer.updatedAt,
+//      addonExtra: comboOffer.addonExtra,
+//   childAdultPolicy: comboOffer.childAdultPolicy,
+//   notSuitableFor: comboOffer.notSuitableFor,
+//   pickupTimeDropOffTime: comboOffer.pickupTimeDropOffTime,
+//   openingHours: comboOffer.openingHours,
+//   location: comboOffer.location,
+//   startingEndPoint: comboOffer.startingEndPoint,
+//   termsConditions:comboOffer.termsConditions,
+//   thingsToKnow:comboOffer.thingsToKnow,
+//   dressCode:comboOffer.dressCode,
+//   howTo:comboOffer.howTo,
+//   bookingCutOffTime:comboOffer.bookingCutOffTime,
+//   howToRedeem:comboOffer.howToRedeem,
+//   costPrice:comboOffer.costPrice,
+//   cancellationPolicy:comboOffer.cancellationPolicy,
+//   attributes:comboOffer.attributes
+//   };
+// };
+
+
 export const convertComboOfferWithCleanResponse = async (
   comboOffer: any,
   targetCurrency: string,
@@ -244,33 +340,73 @@ export const convertComboOfferWithCleanResponse = async (
     )
   );
 
-  // Calculate totals
-  const originalTotalPrice = convertedActivities.reduce((sum, activity) => {
-    return sum + activity.tourLowestPrice;
-  }, 0);
-
-  let totalPrice: number;
-  let totalSavings: number;
+  // Convert pricing fields
+  let convertedActualPrice: number;
+  let convertedDiscountedPrice: number;
+  let convertedCostPrice: number | undefined;
   let convertedDiscount: number;
 
+  // Convert actualPrice
   if (effectiveSourceCurrency === targetCurrency) {
+    convertedActualPrice = comboOffer.actualPrice;
+    convertedDiscountedPrice = comboOffer.discountedPrice;
+    convertedCostPrice = comboOffer.costPrice;
     convertedDiscount = comboOffer.comboDiscount;
   } else if (effectiveSourceCurrency === 'AED') {
-    convertedDiscount = await convertFromAED(comboOffer.comboDiscount, targetCurrency);
+    convertedActualPrice = await convertFromAED(comboOffer.actualPrice, targetCurrency);
+    convertedDiscountedPrice = await convertFromAED(comboOffer.discountedPrice, targetCurrency);
+    if (comboOffer.costPrice) {
+      convertedCostPrice = await convertFromAED(comboOffer.costPrice, targetCurrency);
+    }
+    
+    if (comboOffer.comboDiscountType === 'percentage') {
+      convertedDiscount = comboOffer.comboDiscount; // Percentage stays same
+    } else {
+      convertedDiscount = await convertFromAED(comboOffer.comboDiscount, targetCurrency);
+    }
   } else if (targetCurrency === 'AED') {
-    convertedDiscount = await convertToAED(comboOffer.comboDiscount, effectiveSourceCurrency);
+    convertedActualPrice = await convertToAED(comboOffer.actualPrice, effectiveSourceCurrency);
+    convertedDiscountedPrice = await convertToAED(comboOffer.discountedPrice, effectiveSourceCurrency);
+    if (comboOffer.costPrice) {
+      convertedCostPrice = await convertToAED(comboOffer.costPrice, effectiveSourceCurrency);
+    }
+    
+    if (comboOffer.comboDiscountType === 'percentage') {
+      convertedDiscount = comboOffer.comboDiscount; // Percentage stays same
+    } else {
+      convertedDiscount = await convertToAED(comboOffer.comboDiscount, effectiveSourceCurrency);
+    }
   } else {
-    const discountInAED = await convertToAED(comboOffer.comboDiscount, effectiveSourceCurrency);
-    convertedDiscount = await convertFromAED(discountInAED, targetCurrency);
+    // Convert via AED
+    const actualPriceInAED = await convertToAED(comboOffer.actualPrice, effectiveSourceCurrency);
+    convertedActualPrice = await convertFromAED(actualPriceInAED, targetCurrency);
+
+    const discountedPriceInAED = await convertToAED(comboOffer.discountedPrice, effectiveSourceCurrency);
+    convertedDiscountedPrice = await convertFromAED(discountedPriceInAED, targetCurrency);
+
+    if (comboOffer.costPrice) {
+      const costPriceInAED = await convertToAED(comboOffer.costPrice, effectiveSourceCurrency);
+      convertedCostPrice = await convertFromAED(costPriceInAED, targetCurrency);
+    }
+
+    if (comboOffer.comboDiscountType === 'percentage') {
+      convertedDiscount = comboOffer.comboDiscount; // Percentage stays same
+    } else {
+      const discountInAED = await convertToAED(comboOffer.comboDiscount, effectiveSourceCurrency);
+      convertedDiscount = await convertFromAED(discountInAED, targetCurrency);
+    }
   }
 
+  // Calculate totals from offer prices (not activities)
+  let totalPrice: number;
+  let totalSavings: number;
+
   if (comboOffer.comboDiscountType === 'percentage') {
-    totalSavings = originalTotalPrice * (comboOffer.comboDiscount / 100);
-    totalPrice = originalTotalPrice - totalSavings;
-    convertedDiscount = comboOffer.comboDiscount; // Percentage stays the same
+    totalSavings = Math.round((convertedActualPrice * (comboOffer.comboDiscount / 100)) * 100) / 100;
+    totalPrice = Math.round((convertedActualPrice - totalSavings) * 100) / 100;
   } else {
     totalSavings = convertedDiscount;
-    totalPrice = originalTotalPrice - convertedDiscount;
+    totalPrice = Math.round((convertedActualPrice - convertedDiscount) * 100) / 100;
   }
 
   return {
@@ -285,38 +421,41 @@ export const convertComboOfferWithCleanResponse = async (
     highlights: comboOffer.highlights || [],
     inclusions: comboOffer.inclusions || [],
     exclusions: comboOffer.exclusions || [],
+    attributes: comboOffer.attributes || [],
     category: comboOffer.category || [],
     featuredImage: comboOffer.featuredImage,
+    images: comboOffer.images || [],
     featuredVideo: comboOffer.featuredVideo,
     baseCurrency: targetCurrency.toUpperCase(),
     comboCurrency: targetCurrency.toUpperCase(),
+    actualPrice: convertedActualPrice,
+    discountedPrice: convertedDiscountedPrice,
+    costPrice: convertedCostPrice,
     comboDiscount: convertedDiscount,
     comboDiscountType: comboOffer.comboDiscountType,
     country: comboOffer.country,
     city: comboOffer.city,
+    location: comboOffer.location,
+    startingEndPoint: comboOffer.startingEndPoint,
+    pickupTimeDropOffTime: comboOffer.pickupTimeDropOffTime,
+    openingHours: comboOffer.openingHours,
+    bookingCutOffTime: comboOffer.bookingCutOffTime,
+    childAdultPolicy: comboOffer.childAdultPolicy,
+    notSuitableFor: comboOffer.notSuitableFor,
+    termsConditions: comboOffer.termsConditions,
+    thingsToKnow: comboOffer.thingsToKnow,
+    dressCode: comboOffer.dressCode,
+    howTo: comboOffer.howTo,
+    howToRedeem: comboOffer.howToRedeem,
+    cancellationPolicy: comboOffer.cancellationPolicy,
+    addonExtra: comboOffer.addonExtra,
     activities: convertedActivities,
-    totalPrice: Math.round(totalPrice * 100) / 100,
-    totalSavings: Math.round(totalSavings * 100) / 100,
-    originalTotalPrice: Math.round(originalTotalPrice * 100) / 100,
+    totalPrice,
+    totalSavings,
+    originalTotalPrice: convertedActualPrice,
     seoContent: comboOffer.seoContent,
-    images: comboOffer.images,
     createdAt: comboOffer.createdAt,
     updatedAt: comboOffer.updatedAt,
-     addonExtra: comboOffer.addonExtra,
-  childAdultPolicy: comboOffer.childAdultPolicy,
-  notSuitableFor: comboOffer.notSuitableFor,
-  pickupTimeDropOffTime: comboOffer.pickupTimeDropOffTime,
-  openingHours: comboOffer.openingHours,
-  location: comboOffer.location,
-  startingEndPoint: comboOffer.startingEndPoint,
-  termsConditions:comboOffer.termsConditions,
-  thingsToKnow:comboOffer.thingsToKnow,
-  dressCode:comboOffer.dressCode,
-  howTo:comboOffer.howTo,
-  bookingCutOffTime:comboOffer.bookingCutOffTime,
-  howToRedeem:comboOffer.howToRedeem,
-  cancellationPolicy:comboOffer.cancellationPolicy,
-  attributes:comboOffer.attributes
   };
 };
 
