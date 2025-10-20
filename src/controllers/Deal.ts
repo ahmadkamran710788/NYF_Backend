@@ -201,18 +201,14 @@ export const getDealById = async (req: Request, res: Response): Promise<any> => 
 
 
 
-
 export const getAllDeals = async (req: Request, res: Response): Promise<any> => {
   try {
     const { currency, date } = req.query;
 
     // Validate currency if provided
-    const targetCurrency = currency as string || 'AED';
-    if (currency && !(await isValidCurrency(targetCurrency))) {
-      return res.status(400).json({ message: 'Invalid currency code' });
-    }
-
-    // Parse date if provided
+    const targetCurrency = (currency as string || 'AED').toUpperCase();
+    
+    // Parse date if provided (moved before DB query to fail fast)
     let filterDate: Date | undefined;
     if (date) {
       filterDate = new Date(date as string);
@@ -221,9 +217,19 @@ export const getAllDeals = async (req: Request, res: Response): Promise<any> => 
       }
     }
 
-    // Find all deals and populate activity details
-    const deals = await Deal.find()
-      .populate('activity', 'name category description images');
+    // Parallel execution: validate currency while fetching deals
+    const [isValid, deals] = await Promise.all([
+      currency ? isValidCurrency(targetCurrency) : Promise.resolve(true),
+      Deal.find()
+        .populate('activity', 'name category description images')
+        .lean() // Returns plain JavaScript objects (faster)
+        .select('-__v') // Exclude version key if not needed
+        .hint({ _id: 1 }) // Use index hint if you have one
+    ]);
+
+    if (currency && !isValid) {
+      return res.status(400).json({ message: 'Invalid currency code' });
+    }
 
     if (deals.length === 0) {
       return res.status(200).json({
@@ -237,7 +243,7 @@ export const getAllDeals = async (req: Request, res: Response): Promise<any> => 
     const convertedResponse = await getDealsWithCurrencyConversion(
       deals,
       targetCurrency,
-      'AED', // assuming base currency is AED
+      'AED',
       filterDate
     );
 
@@ -249,6 +255,56 @@ export const getAllDeals = async (req: Request, res: Response): Promise<any> => 
     handleError(res, error, 'Error retrieving deals');
   }
 };
+
+
+
+// export const getAllDeals = async (req: Request, res: Response): Promise<any> => {
+//   try {
+//     const { currency, date } = req.query;
+
+//     // Validate currency if provided
+//     const targetCurrency = currency as string || 'AED';
+//     if (currency && !(await isValidCurrency(targetCurrency))) {
+//       return res.status(400).json({ message: 'Invalid currency code' });
+//     }
+
+//     // Parse date if provided
+//     let filterDate: Date | undefined;
+//     if (date) {
+//       filterDate = new Date(date as string);
+//       if (isNaN(filterDate.getTime())) {
+//         return res.status(400).json({ message: 'Invalid date provided' });
+//       }
+//     }
+
+//     // Find all deals and populate activity details
+//     const deals = await Deal.find()
+//       .populate('activity', 'name category description images');
+
+//     if (deals.length === 0) {
+//       return res.status(200).json({
+//         message: 'No deals found',
+//         deals: [],
+//         count: 0
+//       });
+//     }
+
+//     // Convert deals with currency conversion
+//     const convertedResponse = await getDealsWithCurrencyConversion(
+//       deals,
+//       targetCurrency,
+//       'AED', // assuming base currency is AED
+//       filterDate
+//     );
+
+//     res.status(200).json({
+//       message: 'Deals retrieved successfully',
+//       ...convertedResponse
+//     });
+//   } catch (error) {
+//     handleError(res, error, 'Error retrieving deals');
+//   }
+// };
 
 /**
  * Update a deal
