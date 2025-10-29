@@ -688,6 +688,117 @@ interface MulterRequest extends Request {
 //   }
 // };
 
+// export const addActivity = async (
+//   req: MulterRequest,
+//   res: Response
+// ): Promise<any> => {
+//   try {
+//     const {
+//       name,
+//       category,
+//       cityId,
+//       description,
+//       originalPrice,
+//       discountPrice,
+//       duration,
+//       includes, // Array field for 'includes'
+//       highlights, // Array field for 'highlights'
+//       isInstantConfirmation,
+//       isMobileTicket,
+//       isRefundable,
+//       costPrice, 
+//       baseCurrency
+//     } = req.body;
+
+//     // Validate city exists
+//     const city = await City.findById(cityId);
+
+//     if (!city) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "City not found",
+//       });
+//     }
+
+//     let imageUrls: string[] = [];
+
+//     // Validate category
+//     if (
+//       !Object.values(ActivityCategory).includes(category as ActivityCategory)
+//     ) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Invalid category",
+//       });
+//     }
+
+//     // Make sure 'includes' and 'highlights' are arrays (if passed as strings, parse them)
+//     const includesArray = Array.isArray(includes)
+//       ? includes
+//       : JSON.parse(includes || "[]");
+//     const highlightsArray = Array.isArray(highlights)
+//       ? highlights
+//       : JSON.parse(highlights || "[]");
+
+//     // Handle file uploads if present
+//     if (req.files && Array.isArray(req.files)) {
+//       for (const file of req.files as Express.Multer.File[]) {
+//         try {
+//           const uploadResult = await uploadToCloudinary(
+//             file.path,
+//             "activity_images"
+//           );
+//           imageUrls.push(uploadResult.url);
+//         } catch (uploadError: any) {
+//           console.error("Error uploading image:", uploadError);
+//           return res.status(400).json({
+//             success: false,
+//             message: "Error uploading image",
+//             error: uploadError.message,
+//           });
+//         }
+//       }
+//     }
+
+//     // Create new activity (prices stored in AED)
+//     const activity = new Activity({
+//       name,
+//       category,
+//       city: cityId,
+//       description,
+//       images: imageUrls || [],
+//       originalPrice,
+//       discountPrice,
+//       duration,
+//       includes: includesArray, // Save as array
+//       highlights: highlightsArray, // Save as array
+//       isInstantConfirmation,
+//       isMobileTicket,
+//       isRefundable,
+//       baseCurrency: baseCurrency || "AED",
+//       costPrice: costPrice // Always store in AED
+//     });
+
+//     await activity.save();
+
+//     // Update city with the new activity
+//     await City.findByIdAndUpdate(cityId, {
+//       $push: { activities: activity._id },
+//     });
+
+//     res.status(201).json({
+//       success: true,
+//       data: activity,
+//     });
+//   } catch (error: any) {
+//     res.status(500).json({
+//       success: false,
+//       message: "Error adding activity",
+//       error: error.message,
+//     });
+//   }
+// };
+
 export const addActivity = async (
   req: MulterRequest,
   res: Response
@@ -701,7 +812,7 @@ export const addActivity = async (
       originalPrice,
       discountPrice,
       duration,
-      includes, // Array field for 'includes'
+      includes, // Now a string field
       highlights, // Array field for 'highlights'
       isInstantConfirmation,
       isMobileTicket,
@@ -732,10 +843,7 @@ export const addActivity = async (
       });
     }
 
-    // Make sure 'includes' and 'highlights' are arrays (if passed as strings, parse them)
-    const includesArray = Array.isArray(includes)
-      ? includes
-      : JSON.parse(includes || "[]");
+    // Make sure 'highlights' is an array (if passed as string, parse it)
     const highlightsArray = Array.isArray(highlights)
       ? highlights
       : JSON.parse(highlights || "[]");
@@ -770,7 +878,7 @@ export const addActivity = async (
       originalPrice,
       discountPrice,
       duration,
-      includes: includesArray, // Save as array
+      includes: includes, // Save as string
       highlights: highlightsArray, // Save as array
       isInstantConfirmation,
       isMobileTicket,
@@ -798,6 +906,165 @@ export const addActivity = async (
     });
   }
 };
+
+// export const editActivity = async (
+//   req: MulterRequest,
+//   res: Response
+// ): Promise<any> => {
+//   console.log(1)
+//   try {
+//     const {
+//       name,
+//       category,
+//       cityId,
+//       description,
+//       originalPrice,
+//       discountPrice,
+//       duration,
+//       includes,
+//       highlights,
+//       isInstantConfirmation,
+//       isMobileTicket,
+//       isRefundable,
+//       removeImages, // Array of image URLs to remove
+//       costPrice,
+//       baseCurrency
+//     } = req.body;
+//     const activityId = req.params.id;
+
+//     // Check if the activity exists
+//     const activity = await Activity.findById(activityId);
+//     if (!activity) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Activity not found",
+//       });
+//     }
+
+    
+// console.log(req.body)
+//     // If changing city, validate that the new city exists
+//     let city;
+//     if (cityId && cityId !== activity.city.toString()) {
+//       city = await City.findById(cityId);
+//       if (!city) {
+//         return res.status(404).json({
+//           success: false,
+//           message: "City not found",
+//         });
+//       }
+//     }
+
+//     // Validate category if provided
+//     if (
+//       category &&
+//       !Object.values(ActivityCategory).includes(category as ActivityCategory)
+//     ) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Invalid category",
+//       });
+//     }
+
+//     // Parse arrays if they come as strings
+//     const includesArray = includes
+//       ? Array.isArray(includes)
+//         ? includes
+//         : JSON.parse(includes)
+//       : undefined;
+
+//     const highlightsArray = highlights
+//       ? Array.isArray(highlights)
+//         ? highlights
+//         : JSON.parse(highlights)
+//       : undefined;
+
+//     const removeImagesArray = removeImages
+//       ? Array.isArray(removeImages)
+//         ? removeImages
+//         : JSON.parse(removeImages)
+//       : [];
+
+//     // Current images excluding the ones marked for removal
+//     let currentImages = activity.images.filter(
+//       (img) => !removeImagesArray.includes(img)
+//     );
+
+//     // Handle new file uploads if present
+//     if (req.files && Array.isArray(req.files)) {
+//       for (const file of req.files as Express.Multer.File[]) {
+//         try {
+//           const uploadResult = await uploadToCloudinary(
+//             file.path,
+//             "activity_images"
+//           );
+//           currentImages.push(uploadResult.url);
+//         } catch (uploadError: any) {
+//           console.error("Error uploading image:", uploadError);
+//           return res.status(400).json({
+//             success: false,
+//             message: "Error uploading image",
+//             error: uploadError.message,
+//           });
+//         }
+//       }
+//     }
+
+//     // Prepare update object with only the fields that are provided
+//     const updateData: any = {};
+//     if (name !== undefined) updateData.name = name;
+//     if (category !== undefined) updateData.category = category;
+//     if (cityId !== undefined) updateData.city = cityId;
+//     if (description !== undefined) updateData.description = description;
+//     if (originalPrice !== undefined) updateData.originalPrice = originalPrice;
+//     if (discountPrice !== undefined) updateData.discountPrice = discountPrice;
+//     if (duration !== undefined) updateData.duration = duration;
+//     if (includesArray !== undefined) updateData.includes = includesArray;
+//     if (highlightsArray !== undefined) updateData.highlights = highlightsArray;
+//     if (isInstantConfirmation !== undefined) updateData.isInstantConfirmation = isInstantConfirmation;
+//     if (isMobileTicket !== undefined) updateData.isMobileTicket = isMobileTicket;
+//     if (isRefundable !== undefined) updateData.isRefundable = isRefundable;
+//     if (costPrice !== undefined) updateData.costPrice = costPrice;
+//     if(baseCurrency !== undefined) updateData.baseCurrency = baseCurrency
+    
+//     // Always update images if we processed any add/remove operations
+//     updateData.images = currentImages;
+
+//     // Update the activity with the new data
+//     const updatedActivity = await Activity.findByIdAndUpdate(
+//       activityId,
+//       { $set: updateData },
+//       { new: true, runValidators: true }
+//     );
+
+//     // If city changed, update city references
+//     if (cityId && cityId !== activity.city.toString()) {
+//       // Remove activity from old city
+//       await City.findByIdAndUpdate(activity.city, {
+//         $pull: { activities: activity._id },
+//       });
+
+//       // Add activity to new city
+//       await City.findByIdAndUpdate(cityId, {
+//         $push: { activities: activity._id },
+//       });
+//     }
+
+//     // Return the updated activity
+//     res.status(200).json({
+//       success: true,
+//       data: updatedActivity,
+//     });
+//   } catch (error: any) {
+//     res.status(500).json({
+//       success: false,
+//       message: "Error updating activity",
+//       error: error.message,
+//     });
+//   }
+// };
+
+
 
 
 export const editActivity = async (
@@ -859,13 +1126,7 @@ console.log(req.body)
       });
     }
 
-    // Parse arrays if they come as strings
-    const includesArray = includes
-      ? Array.isArray(includes)
-        ? includes
-        : JSON.parse(includes)
-      : undefined;
-
+    // Parse highlights array if it comes as string
     const highlightsArray = highlights
       ? Array.isArray(highlights)
         ? highlights
@@ -912,7 +1173,7 @@ console.log(req.body)
     if (originalPrice !== undefined) updateData.originalPrice = originalPrice;
     if (discountPrice !== undefined) updateData.discountPrice = discountPrice;
     if (duration !== undefined) updateData.duration = duration;
-    if (includesArray !== undefined) updateData.includes = includesArray;
+    if (includes !== undefined) updateData.includes = includes;
     if (highlightsArray !== undefined) updateData.highlights = highlightsArray;
     if (isInstantConfirmation !== undefined) updateData.isInstantConfirmation = isInstantConfirmation;
     if (isMobileTicket !== undefined) updateData.isMobileTicket = isMobileTicket;

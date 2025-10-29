@@ -17,7 +17,7 @@ export interface ConvertedActivity {
   baseCurrency: string; // Target currency
   sourceCurrency?: string; // ADDED: To track original currency
   duration: string;
-  includes: string[];
+  includes: string;
   highlights: string[];
   isInstantConfirmation: boolean;
   isMobileTicket: boolean;

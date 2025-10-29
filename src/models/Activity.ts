@@ -89,7 +89,7 @@ export interface IActivity extends Document {
   discountPrice: number; // Always stored in AED
   baseCurrency: string; // Always "AED" for storage
   duration: string;
-  includes: string[];
+  includes: string;
   highlights: string[];
   isInstantConfirmation: boolean;
   isMobileTicket: boolean;
@@ -113,7 +113,7 @@ const ActivitySchema = new Schema({
   discountPrice: { type: Number, required: true }, // Stored in AED
   baseCurrency: { type: String, default: "AED" }, // Always AED for storage
   duration: { type: String },
-  includes: [{ type: String }],
+  includes: { type: String },
   highlights: [{ type: String }],
   isInstantConfirmation: { type: Boolean, default: false },
   isMobileTicket: { type: Boolean, default: false },
