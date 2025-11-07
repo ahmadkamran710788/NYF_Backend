@@ -7,7 +7,7 @@ import { Continent } from "../models/Continent";
 import {Deal} from '../models/Deal'
 import mongoose from "mongoose";
 import { uploadToCloudinary } from "../utils/CloudinaryHelper";
-import {convertActivities} from "../services/currencyService"
+import {convertActivities,convertActivity} from "../services/currencyService"
 // Helper function to build filter based on query params
 const buildActivityFilter = (query: any) => {
   const filter: any = {};
@@ -1461,8 +1461,14 @@ export const getActivityById = async (
 ): Promise<any> => {
   try {
     const activityId = req.params.id;
+    const { currency } = req.query;
 
-    const activity = await Activity.findById(activityId).populate("city");
+    // Get target currency (default to AED)
+    const targetCurrency = (currency as string) || 'AED';
+
+    const activity = await Activity.findById(activityId)
+      .populate("city")
+      .lean(); // Using lean() for better performance
 
     if (!activity) {
       return res.status(404).json({
@@ -1471,9 +1477,13 @@ export const getActivityById = async (
       });
     }
 
+    // Convert activity to target currency
+    const convertedActivity = await convertActivity(activity, targetCurrency);
+
     res.status(200).json({
       success: true,
-      data: activity,
+      data: convertedActivity,
+      currency: targetCurrency.toUpperCase(),
     });
   } catch (error: any) {
     console.error("Error in getActivityById:", error);
