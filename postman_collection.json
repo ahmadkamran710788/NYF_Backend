@@ -1,0 +1,238 @@
+{
+    "info": {
+        "_postman_id": "cart-enquiry-test-collection",
+        "name": "NYF Cart and Enquiry Test",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Deals",
+            "item": [
+                {
+                    "name": "Get All Deals",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/deals",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "deals"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Deal Pricing",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/deals/{{deal_id}}/pricing?currency=USD",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "deals",
+                                "{{deal_id}}",
+                                "pricing"
+                            ],
+                            "query": [
+                                {
+                                    "key": "currency",
+                                    "value": "USD"
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Cart",
+            "item": [
+                {
+                    "name": "Get Cart",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/cart/get-cart-item/{{cart_id}}?currency=AED",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "cart",
+                                "get-cart-item",
+                                "{{cart_id}}"
+                            ],
+                            "query": [
+                                {
+                                    "key": "currency",
+                                    "value": "AED"
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Add Item to Cart",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"activity\": \"{{activity_id}}\",\n    \"deal\": \"{{deal_id}}\",\n    \"bookingDate\": \"2025-12-25\",\n    \"numberOfAdults\": 2,\n    \"numberOfChildren\": 1\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/cart/cart-item/{{cart_id}}?currency=USD",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "cart",
+                                "cart-item",
+                                "{{cart_id}}"
+                            ],
+                            "query": [
+                                {
+                                    "key": "currency",
+                                    "value": "USD"
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Checkout Cart",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"email\": \"test@example.com\",\n    \"phoneNumber\": \"+1234567890\",\n    \"firstName\": \"John\",\n    \"lastName\": \"Doe\",\n    \"title\": \"Mr\",\n    \"comment\": \"No onions please\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/cart/{{cart_id}}/checkout?currency=USD",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "cart",
+                                "{{cart_id}}",
+                                "checkout"
+                            ],
+                            "query": [
+                                {
+                                    "key": "currency",
+                                    "value": "USD"
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Enquiry",
+            "item": [
+                {
+                    "name": "Create Deal Enquiry",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"firstName\": \"Jane\",\n    \"lastName\": \"Doe\",\n    \"email\": \"jane@example.com\",\n    \"phoneNumber\": \"+9876543210\",\n    \"travelDate\": \"2025-12-25\",\n    \"enquiryType\": \"deals\",\n    \"dealId\": \"{{deal_id}}\",\n    \"adults\": 2,\n    \"children\": 1,\n    \"childAges\": [5],\n    \"nights\": 3,\n    \"hotelStars\": 5,\n    \"message\": \"Looking for a great deal\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/enquiries",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "enquiries"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Create Holiday Package Enquiry",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"firstName\": \"Bob\",\n    \"lastName\": \"Smith\",\n    \"email\": \"bob@example.com\",\n    \"phoneNumber\": \"+1122334455\",\n    \"travelDate\": \"2026-01-10\",\n    \"enquiryType\": \"holidayPackage\",\n    \"packageId\": \"{{package_id}}\",\n    \"adults\": 2,\n    \"children\": 0,\n    \"nights\": 5,\n    \"message\": \"Honeymoon trip\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/enquiries",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "enquiries"
+                            ]
+                        }
+                    },
+                    "response": []
+                }
+            ]
+        }
+    ],
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "http://localhost:5000/api",
+            "type": "string"
+        },
+        {
+            "key": "cart_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "deal_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "activity_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "package_id",
+            "value": "",
+            "type": "string"
+        }
+    ]
+}

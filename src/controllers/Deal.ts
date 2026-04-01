@@ -15,9 +15,9 @@ import {
 // Helper function for error handling
 const handleError = (res: Response, error: unknown, message: string = 'An error occurred') => {
   console.error(message, error);
-  res.status(500).json({ 
-    message, 
-    error: error instanceof Error ? error.message : 'Unknown error' 
+  res.status(500).json({
+    message,
+    error: error instanceof Error ? error.message : 'Unknown error'
   });
 };
 
@@ -31,14 +31,15 @@ const isValidObjectId = (id: string): boolean => mongoose.Types.ObjectId.isValid
  */
 export const createDeal = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { 
-      activity, 
-      title, 
-      description, 
-      pricing, 
-      includes, 
-      highlights, 
-      restrictions 
+    const {
+      activity,
+      title,
+      description,
+      pricing,
+      includes,
+      highlights,
+      restrictions,
+      dealType = "public"
     } = req.body;
 
     // Validate activity exists
@@ -47,15 +48,26 @@ export const createDeal = async (req: Request, res: Response): Promise<any> => {
       return res.status(404).json({ message: 'Activity not found' });
     }
 
+    let parsedPricing;
+    if (dealType === 'private') {
+      parsedPricing = Number(pricing);
+      if (isNaN(parsedPricing)) {
+        return res.status(400).json({ message: 'Invalid pricing for private deal' });
+      }
+    } else {
+      parsedPricing = typeof pricing === 'string' ? JSON.parse(pricing) : pricing;
+    }
+
     // Create new deal object (without saving it yet)
     const newDeal = new Deal({
       activity,
       title,
       description,
-      pricing: JSON.parse(pricing),
-      includes: JSON.parse(includes),
-      highlights: JSON.parse(highlights),
-      restrictions: restrictions ? JSON.parse(restrictions) : []
+      dealType,
+      pricing: parsedPricing,
+      includes: typeof includes === 'string' ? JSON.parse(includes) : includes,
+      highlights: typeof highlights === 'string' ? JSON.parse(highlights) : highlights,
+      restrictions: restrictions ? (typeof restrictions === 'string' ? JSON.parse(restrictions) : restrictions) : []
     });
 
     // Handle image upload if a file was provided
@@ -66,12 +78,12 @@ export const createDeal = async (req: Request, res: Response): Promise<any> => {
           req.file.path,
           "deals"  // folder name in Cloudinary
         );
-        
+
         // Add the image URL to the deal
         newDeal.image = uploadResult.url;
       } catch (error) {
-        return res.status(400).json({ 
-          message: 'Error uploading image', 
+        return res.status(400).json({
+          message: 'Error uploading image',
           error: error instanceof Error ? error.message : 'Unknown error'
         });
       }
@@ -203,11 +215,16 @@ export const getDealById = async (req: Request, res: Response): Promise<any> => 
 
 export const getAllDeals = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { currency, date } = req.query;
+    const { currency, date, page, limit, search, dealType } = req.query;
+
+    // Pagination defaults
+    const pageNum = Math.max(1, parseInt(page as string) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit as string) || 20));
+    const skip = (pageNum - 1) * limitNum;
 
     // Validate currency if provided
     const targetCurrency = (currency as string || 'AED').toUpperCase();
-    
+
     // Parse date if provided (moved before DB query to fail fast)
     let filterDate: Date | undefined;
     if (date) {
@@ -217,14 +234,26 @@ export const getAllDeals = async (req: Request, res: Response): Promise<any> => 
       }
     }
 
-    // Parallel execution: validate currency while fetching deals
-    const [isValid, deals] = await Promise.all([
+    // Build filter
+    const filter: any = {};
+    if (search && typeof search === 'string' && search.trim()) {
+      filter.title = { $regex: search.trim(), $options: 'i' };
+    }
+    if (dealType === 'public' || dealType === 'private') {
+      filter.dealType = dealType;
+    }
+
+    // Parallel execution: validate currency, fetch paginated deals, and get total count
+    const [isValid, deals, totalCount] = await Promise.all([
       currency ? isValidCurrency(targetCurrency) : Promise.resolve(true),
-      Deal.find()
+      Deal.find(filter)
         .populate('activity', 'name category description images')
-        .lean() // Returns plain JavaScript objects (faster)
-        .select('-__v') // Exclude version key if not needed
-        .hint({ _id: 1 }) // Use index hint if you have one
+        .lean()
+        .select('-__v')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum),
+      Deal.countDocuments(filter)
     ]);
 
     if (currency && !isValid) {
@@ -234,8 +263,14 @@ export const getAllDeals = async (req: Request, res: Response): Promise<any> => 
     if (deals.length === 0) {
       return res.status(200).json({
         message: 'No deals found',
-        deals: [],
-        count: 0
+        success: true,
+        data: [],
+        pagination: {
+          total: totalCount,
+          page: pageNum,
+          limit: limitNum,
+          totalPages: Math.ceil(totalCount / limitNum),
+        }
       });
     }
 
@@ -249,7 +284,13 @@ export const getAllDeals = async (req: Request, res: Response): Promise<any> => 
 
     res.status(200).json({
       message: 'Deals retrieved successfully',
-      ...convertedResponse
+      ...convertedResponse,
+      pagination: {
+        total: totalCount,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(totalCount / limitNum),
+      }
     });
   } catch (error) {
     handleError(res, error, 'Error retrieving deals');
@@ -329,13 +370,41 @@ export const updateDeal = async (req: Request, res: Response): Promise<any> => {
       }
     }
 
+    // Handle image upload if a new file was provided
+    if (req.file) {
+      try {
+        const uploadResult = await uploadToCloudinary(req.file.path, "deals");
+        updateData.image = uploadResult.url;
+      } catch (error) {
+        return res.status(400).json({
+          message: 'Error uploading image',
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+    }
+
+    // Parse pricing based on dealType (handles FormData string values)
+    if (updateData.pricing !== undefined) {
+      const dealType = updateData.dealType;
+      if (dealType === 'private') {
+        updateData.pricing = Number(updateData.pricing);
+        if (isNaN(updateData.pricing)) {
+          return res.status(400).json({ message: 'Invalid pricing for private deal' });
+        }
+      } else {
+        if (typeof updateData.pricing === 'string') {
+          updateData.pricing = JSON.parse(updateData.pricing);
+        }
+      }
+    }
+
     // Update deal
     const updatedDeal = await Deal.findByIdAndUpdate(
-      dealId, 
-      updateData, 
-      { 
-        new: true, 
-        runValidators: true 
+      dealId,
+      updateData,
+      {
+        new: true,
+        runValidators: true
       }
     );
 
@@ -413,18 +482,18 @@ export const deleteDeal = async (req: Request, res: Response): Promise<any> => {
 //     const deals = await Deal.aggregate([
 //       // Match deals for the specific activity
 //       { $match: { activity: new mongoose.Types.ObjectId(activityId) } },
-      
+
 //       // Unwind the pricing array
 //       { $unwind: '$pricing' },
-      
+
 //       // Filter pricing entries up to the search date
 //       { $match: { 
 //         'pricing.date': { $lte: searchDate } 
 //       }},
-      
+
 //       // Sort to get the most recent pricing
 //       { $sort: { 'pricing.date': -1 } },
-      
+
 //       // Group back to preserve deal structure with the most recent pricing
 //       { $group: {
 //         _id: '$_id',
@@ -435,7 +504,7 @@ export const deleteDeal = async (req: Request, res: Response): Promise<any> => {
 //         highlights: { $first: '$highlights' },
 //         pricing: { $first: '$pricing' }
 //       }},
-      
+
 //       // Optionally populate activity details
 //       { $lookup: {
 //         from: 'activities',
@@ -443,7 +512,7 @@ export const deleteDeal = async (req: Request, res: Response): Promise<any> => {
 //         foreignField: '_id',
 //         as: 'activityDetails'
 //       }},
-      
+
 //       // Unwind activity details
 //       { $unwind: { 
 //         path: '$activityDetails', 
@@ -512,10 +581,10 @@ export const deleteDeal = async (req: Request, res: Response): Promise<any> => {
 //     const deals = await Deal.aggregate([
 //       // Match deals for the specific activity
 //       { $match: { activity: new mongoose.Types.ObjectId(activityId) } },
-      
+
 //       // Unwind the pricing array
 //       { $unwind: '$pricing' },
-      
+
 //       // If a date is provided, match the pricing date to the exact search date
 //       ...(searchDate ? [
 //         { $match: { 
@@ -528,7 +597,7 @@ export const deleteDeal = async (req: Request, res: Response): Promise<any> => {
 
 //       // Sort to get the earliest available pricing if no date is provided
 //       { $sort: { 'pricing.date': 1 } },
-      
+
 //       // Group back to preserve deal structure with the earliest pricing
 //       { $group: {
 //         _id: '$_id',
@@ -539,7 +608,7 @@ export const deleteDeal = async (req: Request, res: Response): Promise<any> => {
 //         highlights: { $first: '$highlights' },
 //         pricing: { $first: '$pricing' }
 //       }},
-      
+
 //       // Optionally populate activity details
 //       { $lookup: {
 //         from: 'activities',
@@ -547,7 +616,7 @@ export const deleteDeal = async (req: Request, res: Response): Promise<any> => {
 //         foreignField: '_id',
 //         as: 'activityDetails'
 //       }},
-      
+
 //       // Unwind activity details
 //       { $unwind: { 
 //         path: '$activityDetails', 
@@ -617,64 +686,91 @@ export const getDealsPricingByActivityAndDate = async (req: Request, res: Respon
     }
 
     // Check if activity exists
-    const activity = await Activity.findById(activityId);
-    if (!activity) {
+    const existingActivity = await Activity.findById(activityId);
+    if (!existingActivity) {
       return res.status(404).json({ message: 'Activity not found' });
     }
 
-    // Find deals for the specific activity
-    const deals = await Deal.aggregate([
-      // Match deals for the specific activity
-      { $match: { activity: new mongoose.Types.ObjectId(activityId) } },
-      
+    // 1. Fetch Private Deals (Simple Find)
+    const privateDealsPromise = Deal.find({
+      activity: activityId,
+      dealType: 'private'
+    }).populate('activity', 'name category description images');
+
+    // 2. Fetch Public Deals (Aggregation for Date Filtering)
+    const publicDealsPromise = Deal.aggregate([
+      // Match deals for the specific activity and ensure they represent public deals (array pricing)
+      {
+        $match: {
+          activity: new mongoose.Types.ObjectId(activityId),
+          $or: [
+            { dealType: 'public' },
+            { dealType: { $exists: false } } // Handle legacy docs
+          ]
+        }
+      },
+
       // Unwind the pricing array
       { $unwind: '$pricing' },
-      
+
       // If a date is provided, match the pricing date to the exact search date
       ...(searchDate ? [
-        { $match: { 
-          'pricing.date': { 
-            $gte: new Date(searchDate.setHours(0, 0, 0, 0)), 
-            $lt: new Date(searchDate.getTime() + 24 * 60 * 60 * 1000) 
-          } 
-        }}
+        {
+          $match: {
+            'pricing.date': {
+              $gte: new Date(searchDate.setHours(0, 0, 0, 0)),
+              $lt: new Date(searchDate.getTime() + 24 * 60 * 60 * 1000)
+            }
+          }
+        }
       ] : []),
 
       // Sort to get the earliest available pricing if no date is provided
       { $sort: { 'pricing.date': 1 } },
-      
+
       // Group back to preserve deal structure with the earliest pricing
-      { $group: {
-        _id: '$_id',
-        title: { $first: '$title' },
-        description: { $first: '$description' },
-        activity: { $first: '$activity' },
-        includes: { $first: '$includes' },
-        highlights: { $first: '$highlights' },
-        image: { $first: '$image' },
-        pricing: { $first: '$pricing' },
-        restrictions: { $first: '$restrictions' },
-        baseCurrency: { $first: '$baseCurrency' },
-        createdAt: { $first: '$createdAt' },
-        updatedAt: { $first: '$updatedAt' }
-      }},
-      
-      // Optionally populate activity details
-      { $lookup: {
-        from: 'activities',
-        localField: 'activity',
-        foreignField: '_id',
-        as: 'activityDetails'
-      }},
-      
+      {
+        $group: {
+          _id: '$_id',
+          title: { $first: '$title' },
+          description: { $first: '$description' },
+          activity: { $first: '$activity' },
+          includes: { $first: '$includes' },
+          highlights: { $first: '$highlights' },
+          image: { $first: '$image' },
+          dealType: { $first: '$dealType' },
+          pricing: { $first: '$pricing' }, // This picks the matched single pricing object
+          restrictions: { $first: '$restrictions' },
+          baseCurrency: { $first: '$baseCurrency' },
+          createdAt: { $first: '$createdAt' },
+          updatedAt: { $first: '$updatedAt' }
+        }
+      },
+
+      // Populate activity details
+      {
+        $lookup: {
+          from: 'activities',
+          localField: 'activity',
+          foreignField: '_id',
+          as: 'activityDetails'
+        }
+      },
+
       // Unwind activity details
-      { $unwind: { 
-        path: '$activityDetails', 
-        preserveNullAndEmptyArrays: true 
-      }}
+      {
+        $unwind: {
+          path: '$activityDetails',
+          preserveNullAndEmptyArrays: true
+        }
+      }
     ]);
 
-    if (deals.length === 0) {
+    const [privateDeals, publicDeals] = await Promise.all([privateDealsPromise, publicDealsPromise]);
+
+    const allDeals = [...privateDeals, ...publicDeals];
+
+    if (allDeals.length === 0) {
       return res.status(200).json({
         message: 'No deals found',
         deals: [],
@@ -684,28 +780,51 @@ export const getDealsPricingByActivityAndDate = async (req: Request, res: Respon
       });
     }
 
+    // Transform deals to common format before conversion
+    const transformedDeals = allDeals.map(deal => {
+      // Handle Mongoose document vs POJO (aggregation result)
+      const isDoc = deal instanceof mongoose.Model;
+      const d = isDoc ? deal.toObject() : deal;
 
-    // Transform deals to include activity details in the right format
-    const transformedDeals = deals.map(deal => ({
-      _id: deal._id,
-      title: deal.title,
-      description: deal.description,
-      includes: deal.includes,
-      highlights: deal.highlights,
-      restrictions: deal.restrictions || [],
-      image: deal.image,
-      pricing: [deal.pricing], // Convert single pricing back to array for service
-      activity: deal.activityDetails ? {
-        _id: deal.activityDetails._id,
-        name: deal.activityDetails.name,
-        category: deal.activityDetails.category,
-        description: deal.activityDetails.description,
-        images: deal.activityDetails.images || []
-      } : null,
-      baseCurrency: deal.baseCurrency || 'AED',
-      createdAt: deal.createdAt,
-      updatedAt: deal.updatedAt
-    }));
+      // Handle activity struct difference
+      const activityData = d.activityDetails || d.activity || null;
+
+      // Handle pricing structure
+      // For public deals coming from aggregation, 'pricing' is a single object (unwound)
+      // For private deals, 'pricing' is a number
+      // The service expects array or number.
+      // If public and single object, wrap in array for service.
+      let pricingForService;
+      if (typeof d.pricing === 'number') {
+        pricingForService = d.pricing;
+      } else if (d.pricing && !Array.isArray(d.pricing)) {
+        pricingForService = [d.pricing];
+      } else {
+        pricingForService = d.pricing;
+      }
+
+      return {
+        _id: d._id,
+        title: d.title,
+        description: d.description,
+        includes: d.includes,
+        highlights: d.highlights,
+        restrictions: d.restrictions || [],
+        image: d.image,
+        dealType: d.dealType || 'public',
+        pricing: pricingForService,
+        baseCurrency: d.baseCurrency || 'AED',
+        activity: activityData ? {
+          _id: activityData._id,
+          name: activityData.name,
+          category: activityData.category,
+          description: activityData.description,
+          images: activityData.images || []
+        } : null,
+        createdAt: d.createdAt,
+        updatedAt: d.updatedAt
+      };
+    });
 
     // Convert deals with currency conversion using the service
     const convertedResponse = await convertDealsWithCleanResponse(
@@ -715,27 +834,37 @@ export const getDealsPricingByActivityAndDate = async (req: Request, res: Respon
     );
 
     // Transform the result to match the original expected format
-    const formattedDeals = convertedResponse.data.map(deal => ({
-      _id: deal._id,
-      title: deal.title,
-      description: deal.description,
-      includes: deal.includes,
-      highlights: deal.highlights,
-      image: deal.image,
-      pricing: deal.pricing && deal.pricing.length > 0 ? {
-        date: deal.pricing[0].date,
-        adultPrice: deal.pricing[0].adultPrice,
-        childPrice: deal.pricing[0].childPrice
-      } : null,
-      activityDetails: deal.activity ? {
-        name: deal.activity.name,
-        category: deal.activity.category
-      } : null
-    }));
+    const formattedDeals = convertedResponse.data.map(deal => {
+      let pricingOutput = null;
+      if (typeof deal.pricing === 'number') {
+        pricingOutput = deal.pricing;
+      } else if (Array.isArray(deal.pricing) && deal.pricing.length > 0) {
+        pricingOutput = {
+          date: deal.pricing[0].date,
+          adultPrice: deal.pricing[0].adultPrice,
+          childPrice: deal.pricing[0].childPrice
+        };
+      }
+
+      return {
+        _id: deal._id,
+        title: deal.title,
+        description: deal.description,
+        includes: deal.includes,
+        highlights: deal.highlights,
+        image: deal.image,
+        dealType: deal.dealType,
+        pricing: pricingOutput,
+        activityDetails: deal.activity ? {
+          name: deal.activity.name,
+          category: deal.activity.category
+        } : null
+      };
+    });
 
     // Respond with the deals
     res.status(200).json({
-      message: deals.length > 0 ? 'Deals retrieved successfully' : 'No deals found',
+      message: formattedDeals.length > 0 ? 'Deals retrieved successfully' : 'No deals found',
       deals: formattedDeals,
       count: formattedDeals.length,
       searchDate,
@@ -793,26 +922,43 @@ export const getBestDealPricing = async (req: Request, res: Response): Promise<a
 
     // Check if pricing was found
     if (!convertedPricing) {
-      return res.status(404).json({ 
-        message: 'No pricing found for the deal on the specified date' 
+      return res.status(404).json({
+        message: 'No pricing found for the deal on the specified date'
       });
     }
 
     // Respond with the best pricing
-    res.status(200).json({
-      message: 'Deal pricing retrieved successfully',
-      pricing: {
-        title: deal.title,
-        description: deal.description,
-        date: convertedPricing.date,
-        adultPrice: convertedPricing.adultPrice,
-        childPrice: convertedPricing.childPrice,
-        formattedAdultPrice: formatPrice(convertedPricing.adultPrice, targetCurrency),
-        formattedChildPrice: formatPrice(convertedPricing.childPrice, targetCurrency)
-      },
-      searchDate,
-      currency: targetCurrency
-    });
+    // Respond with the best pricing
+    if (typeof convertedPricing === 'number') {
+      res.status(200).json({
+        message: 'Deal pricing retrieved successfully',
+        pricing: {
+          title: deal.title,
+          description: deal.description,
+          price: convertedPricing,
+          formattedPrice: formatPrice(convertedPricing, targetCurrency)
+        },
+        searchDate: null,
+        type: 'private',
+        currency: targetCurrency
+      });
+    } else {
+      res.status(200).json({
+        message: 'Deal pricing retrieved successfully',
+        pricing: {
+          title: deal.title,
+          description: deal.description,
+          date: convertedPricing.date,
+          adultPrice: convertedPricing.adultPrice,
+          childPrice: convertedPricing.childPrice,
+          formattedAdultPrice: formatPrice(convertedPricing.adultPrice, targetCurrency),
+          formattedChildPrice: formatPrice(convertedPricing.childPrice, targetCurrency)
+        },
+        searchDate,
+        type: 'public',
+        currency: targetCurrency
+      });
+    }
 
   } catch (error) {
     handleError(res, error, 'Error retrieving deal pricing');
@@ -821,7 +967,7 @@ export const getBestDealPricing = async (req: Request, res: Response): Promise<a
 export const getSupportedCurrenciesEndpoint = async (req: Request, res: Response): Promise<any> => {
   try {
     const currencies = await getSupportedCurrencies();
-    
+
     res.status(200).json({
       message: 'Supported currencies retrieved successfully',
       currencies,
@@ -849,30 +995,30 @@ export const addBulkDealPricing = async (req: Request, res: Response): Promise<a
 
     // Validate required fields
     if (!startDate || !endDate || adultPrice === undefined || childPrice === undefined) {
-      return res.status(400).json({ 
-        message: 'Missing required fields: startDate, endDate, adultPrice, childPrice' 
+      return res.status(400).json({
+        message: 'Missing required fields: startDate, endDate, adultPrice, childPrice'
       });
     }
 
     // Validate and parse dates
     const start = new Date(startDate);
     const end = new Date(endDate);
-    
+
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
       return res.status(400).json({ message: 'Invalid date format' });
     }
 
     // Ensure start date is not after end date
     if (start > end) {
-      return res.status(400).json({ 
-        message: 'Start date cannot be after end date' 
+      return res.status(400).json({
+        message: 'Start date cannot be after end date'
       });
     }
 
     // Validate pricing values
     if (adultPrice < 0 || childPrice < 0) {
-      return res.status(400).json({ 
-        message: 'Pricing values cannot be negative' 
+      return res.status(400).json({
+        message: 'Pricing values cannot be negative'
       });
     }
 
@@ -885,11 +1031,23 @@ export const addBulkDealPricing = async (req: Request, res: Response): Promise<a
     // Generate array of dates between start and end date (inclusive)
     const dates: Date[] = [];
     const currentDate = new Date(start);
-    
+
     while (currentDate <= end) {
       dates.push(new Date(currentDate));
       currentDate.setDate(currentDate.getDate() + 1);
     }
+
+    // Check if deal is private
+    if (typeof deal.pricing === 'number' || deal.dealType === 'private') {
+      return res.status(400).json({ message: 'Cannot add bulk pricing for private deals' });
+    }
+
+    // Cast pricing to array for TS since we checked specific type/logic
+    // Note: Mongoose document array methods might differ from simple array, but here accessing as array
+    if (!Array.isArray(deal.pricing)) {
+      deal.pricing = [];
+    }
+    const pricingArray = deal.pricing as any[]; // Using any[] to bypass deep Mongoose type issues temporarily
 
     // Create pricing entries for each date
     const pricingEntries = dates.map(date => ({
@@ -899,17 +1057,17 @@ export const addBulkDealPricing = async (req: Request, res: Response): Promise<a
     }));
 
     // Check for existing pricing on these dates
-    const existingDates = deal.pricing
+    const existingDates = pricingArray
       .filter(p => {
         const pricingDate = new Date(p.date);
-        return dates.some(d => 
+        return dates.some(d =>
           pricingDate.getTime() === d.getTime()
         );
       })
-      .map(p => p.date.toISOString().split('T')[0]);
+      .map((p: any) => p.date.toISOString().split('T')[0]);
 
     if (existingDates.length > 0) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: 'Pricing already exists for some dates',
         existingDates: existingDates,
         suggestion: 'Use update endpoint to modify existing pricing or choose different dates'
@@ -917,10 +1075,13 @@ export const addBulkDealPricing = async (req: Request, res: Response): Promise<a
     }
 
     // Add new pricing entries to the deal
-    deal.pricing.push(...pricingEntries);
+    pricingArray.push(...pricingEntries);
 
     // Sort pricing by date to maintain order
-    deal.pricing.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    pricingArray.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // Reassign back to tell Mongoose it changed (though usually push works on doc array)
+    deal.pricing = pricingArray;
 
     // Save the updated deal
     await deal.save();
@@ -962,30 +1123,30 @@ export const updateBulkDealPricing = async (req: Request, res: Response): Promis
 
     // Validate required fields
     if (!startDate || !endDate || adultPrice === undefined || childPrice === undefined) {
-      return res.status(400).json({ 
-        message: 'Missing required fields: startDate, endDate, adultPrice, childPrice' 
+      return res.status(400).json({
+        message: 'Missing required fields: startDate, endDate, adultPrice, childPrice'
       });
     }
 
     // Validate and parse dates
     const start = new Date(startDate);
     const end = new Date(endDate);
-    
+
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
       return res.status(400).json({ message: 'Invalid date format' });
     }
 
     // Ensure start date is not after end date
     if (start > end) {
-      return res.status(400).json({ 
-        message: 'Start date cannot be after end date' 
+      return res.status(400).json({
+        message: 'Start date cannot be after end date'
       });
     }
 
     // Validate pricing values
     if (adultPrice < 0 || childPrice < 0) {
-      return res.status(400).json({ 
-        message: 'Pricing values cannot be negative' 
+      return res.status(400).json({
+        message: 'Pricing values cannot be negative'
       });
     }
 
@@ -998,11 +1159,22 @@ export const updateBulkDealPricing = async (req: Request, res: Response): Promis
     // Generate array of dates between start and end date (inclusive)
     const dates: Date[] = [];
     const currentDate = new Date(start);
-    
+
     while (currentDate <= end) {
       dates.push(new Date(currentDate));
       currentDate.setDate(currentDate.getDate() + 1);
     }
+
+    // Check if deal is private
+    if (typeof deal.pricing === 'number' || deal.dealType === 'private') {
+      return res.status(400).json({ message: 'Cannot update bulk pricing for private deals' });
+    }
+
+    // Cast pricing to array
+    if (!Array.isArray(deal.pricing)) {
+      deal.pricing = [];
+    }
+    const pricingArray = deal.pricing as any[];
 
     let updatedCount = 0;
     let addedCount = 0;
@@ -1010,22 +1182,22 @@ export const updateBulkDealPricing = async (req: Request, res: Response): Promis
     // Process each date
     dates.forEach(date => {
       const normalizedDate = new Date(date.setHours(0, 0, 0, 0));
-      
+
       // Find existing pricing entry for this date
-      const existingIndex = deal.pricing.findIndex(p => 
+      const existingIndex = pricingArray.findIndex(p =>
         new Date(p.date).getTime() === normalizedDate.getTime()
       );
 
       if (existingIndex !== -1) {
         // Update existing pricing
         if (overwrite) {
-          deal.pricing[existingIndex].adultPrice = Number(adultPrice);
-          deal.pricing[existingIndex].childPrice = Number(childPrice);
+          pricingArray[existingIndex].adultPrice = Number(adultPrice);
+          pricingArray[existingIndex].childPrice = Number(childPrice);
           updatedCount++;
         }
       } else {
         // Add new pricing entry
-        deal.pricing.push({
+        pricingArray.push({
           date: normalizedDate,
           adultPrice: Number(adultPrice),
           childPrice: Number(childPrice)
@@ -1035,7 +1207,9 @@ export const updateBulkDealPricing = async (req: Request, res: Response): Promis
     });
 
     // Sort pricing by date to maintain order
-    deal.pricing.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    pricingArray.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    deal.pricing = pricingArray;
 
     // Save the updated deal
     await deal.save();
@@ -1082,23 +1256,23 @@ export const deleteBulkDealPricing = async (req: Request, res: Response): Promis
 
     // Validate required fields
     if (!startDate || !endDate) {
-      return res.status(400).json({ 
-        message: 'Missing required fields: startDate, endDate' 
+      return res.status(400).json({
+        message: 'Missing required fields: startDate, endDate'
       });
     }
 
     // Validate and parse dates
     const start = new Date(startDate);
     const end = new Date(endDate);
-    
+
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
       return res.status(400).json({ message: 'Invalid date format' });
     }
 
     // Ensure start date is not after end date
     if (start > end) {
-      return res.status(400).json({ 
-        message: 'Start date cannot be after end date' 
+      return res.status(400).json({
+        message: 'Start date cannot be after end date'
       });
     }
 
@@ -1111,22 +1285,34 @@ export const deleteBulkDealPricing = async (req: Request, res: Response): Promis
     // Generate array of dates between start and end date (inclusive)
     const dates: Date[] = [];
     const currentDate = new Date(start);
-    
+
     while (currentDate <= end) {
       dates.push(new Date(currentDate));
       currentDate.setDate(currentDate.getDate() + 1);
     }
 
+    // Check if deal is private
+    if (typeof deal.pricing === 'number' || deal.dealType === 'private') {
+      return res.status(400).json({ message: 'Cannot delete bulk pricing for private deals' });
+    }
+
+    // Cast pricing to array
+    if (!Array.isArray(deal.pricing)) {
+      deal.pricing = [];
+    }
+    const pricingArray = deal.pricing as any[];
+
     // Remove pricing entries for the specified date range
-    const originalLength = deal.pricing.length;
-    deal.pricing = deal.pricing.filter(p => {
+    const originalLength = pricingArray.length;
+    const filteredPricing = pricingArray.filter(p => {
       const pricingDate = new Date(p.date);
-      return !dates.some(d => 
+      return !dates.some(d =>
         pricingDate.getTime() === new Date(d.setHours(0, 0, 0, 0)).getTime()
       );
     });
 
-    const deletedCount = originalLength - deal.pricing.length;
+    deal.pricing = filteredPricing;
+    const deletedCount = originalLength - filteredPricing.length;
 
     // Save the updated deal
     await deal.save();

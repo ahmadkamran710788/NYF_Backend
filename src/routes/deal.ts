@@ -20,7 +20,7 @@ router.post('/',upload.single("image"),createDeal);
 router.get('/', getAllDeals);  
 router.get('/activity/:activityId', getDealsByActivity);
 router.get('/:dealId', getDealById);
-router.put('/:dealId', updateDeal);
+router.put('/:dealId', upload.single("image"), updateDeal);
 router.delete('/:dealId', deleteDeal);
 router.get('/activity/:activityId/pricing', getDealsPricingByActivityAndDate);
 router.get('/:dealId/pricing', getBestDealPricing);

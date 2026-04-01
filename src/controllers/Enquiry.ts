@@ -2,7 +2,7 @@ import e, { Request, Response } from 'express';
 import { Enquiry, IEnquiry } from '../models/Enquiry';
 import { HolidayPackage } from '../models/HolidayPackage';
 import { Vehicle } from '../models/Vehicle';
-import {Deal} from '../models/Deal';
+import { Deal } from '../models/Deal';
 import mongoose from 'mongoose';
 
 // Fetch package price
@@ -19,8 +19,8 @@ export const getPackagePrice = async (req: Request, res: Response): Promise<any>
     const holidayPackage = await HolidayPackage.findById(packageId);
 
     if (!holidayPackage) {
-      return res.status(404).json({ 
-        message: 'Package not found' 
+      return res.status(404).json({
+        message: 'Package not found'
       });
     }
 
@@ -31,9 +31,9 @@ export const getPackagePrice = async (req: Request, res: Response): Promise<any>
       discountPrice: holidayPackage.discountPrice
     });
   } catch (error: any) {
-    res.status(500).json({ 
-      message: 'Error fetching package price', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Error fetching package price',
+      error: error.message
     });
   }
 };
@@ -128,22 +128,22 @@ export const getPackagePrice = async (req: Request, res: Response): Promise<any>
 //       message,
 //       packageId
 //     } = req.body;
-    
+
 //     // Validate package
 //     if (!mongoose.Types.ObjectId.isValid(packageId)) {
 //       return res.status(400).json({ message: 'Invalid package ID' });
 //     }
-    
+
 //     const packageExists = await HolidayPackage.findById(packageId);
 //     if (!packageExists) {
 //       return res.status(400).json({
 //         message: 'Invalid package selected'
 //       });
 //     }
-    
+
 //     // Determine budget (use package discounted price if not provided)
 //     const finalBudget = budget || packageExists.discountPrice;
-    
+
 //     // Validate childAges if children are present
 //     if (children > 0) {
 //       // Check if childAges is provided and is an array
@@ -152,14 +152,14 @@ export const getPackagePrice = async (req: Request, res: Response): Promise<any>
 //           message: 'Child ages must be provided as an array when children are present'
 //         });
 //       }
-      
+
 //       // Check if the number of ages matches the number of children
 //       if (childAges.length !== children) {
 //         return res.status(400).json({
 //           message: 'Number of child ages must match the number of children'
 //         });
 //       }
-      
+
 //       // Validate each age
 //       for (const age of childAges) {
 //         if (typeof age !== 'number' || age < 0 || age > 17) {
@@ -169,7 +169,7 @@ export const getPackagePrice = async (req: Request, res: Response): Promise<any>
 //         }
 //       }
 //     }
-    
+
 //     // Create new enquiry
 //     const newEnquiry = new Enquiry({
 //       firstName,
@@ -185,10 +185,10 @@ export const getPackagePrice = async (req: Request, res: Response): Promise<any>
 //       message,
 //       packageId
 //     });
-    
+
 //     // Save enquiry
 //     const savedEnquiry = await newEnquiry.save();
-    
+
 //     res.status(201).json({
 //       message: 'Enquiry submitted successfully',
 //       enquiry: savedEnquiry
@@ -202,7 +202,7 @@ export const getPackagePrice = async (req: Request, res: Response): Promise<any>
 //         errors
 //       });
 //     }
-    
+
 //     res.status(500).json({
 //       message: 'Error creating enquiry',
 //       error: error.message
@@ -226,7 +226,7 @@ export const createEnquiry = async (req: Request, res: Response): Promise<any> =
       message,
       enquiryType
     } = req.body;
-    
+
     // Base enquiry data common to both types
     const enquiryData: any = {
       firstName,
@@ -239,14 +239,14 @@ export const createEnquiry = async (req: Request, res: Response): Promise<any> =
       message,
       enquiryType
     };
-    
+
     // Handle based on enquiry type
     if (enquiryType === 'holidayPackage') {
       await handleHolidayPackageEnquiry(req, res, enquiryData);
-    }else if (enquiryType === 'honeymoonPackage') {
+    } else if (enquiryType === 'honeymoonPackage') {
       await handleHoneymoonPackageEnquiry(req, res, enquiryData);
-    }else if (enquiryType === 'deals') {
-      await handleDealEnquiry(req, res, enquiryData,travelDate);
+    } else if (enquiryType === 'deals') {
+      await handleDealEnquiry(req, res, enquiryData, travelDate);
     } else if (enquiryType === 'carService') {
       await handleCarServiceEnquiry(req, res, enquiryData);
     } else {
@@ -263,7 +263,7 @@ export const createEnquiry = async (req: Request, res: Response): Promise<any> =
         errors
       });
     }
-    
+
     res.status(500).json({
       message: 'Error creating enquiry',
       error: error.message
@@ -281,22 +281,22 @@ const handleHolidayPackageEnquiry = async (req: Request, res: Response, enquiryD
     staycation,
     nights
   } = req.body;
-  
+
   // Validate package
   if (!mongoose.Types.ObjectId.isValid(packageId)) {
     return res.status(400).json({ message: 'Invalid package ID' });
   }
-  
+
   const packageExists = await HolidayPackage.findById(packageId);
   if (!packageExists) {
     return res.status(400).json({
       message: 'Invalid package selected'
     });
   }
-  
+
   // Determine budget (use package discounted price if not provided)
   const finalBudget = budget || packageExists.discountPrice;
-  
+
   // Validate childAges if children are present
   if (children > 0) {
     // Check if childAges is provided and is an array
@@ -305,14 +305,14 @@ const handleHolidayPackageEnquiry = async (req: Request, res: Response, enquiryD
         message: 'Child ages must be provided as an array when children are present'
       });
     }
-    
+
     // Check if the number of ages matches the number of children
     if (childAges.length !== children) {
       return res.status(400).json({
         message: 'Number of child ages must match the number of children'
       });
     }
-    
+
     // Validate each age
     for (const age of childAges) {
       if (typeof age !== 'number' || age < 0 || age > 17) {
@@ -322,7 +322,7 @@ const handleHolidayPackageEnquiry = async (req: Request, res: Response, enquiryD
       }
     }
   }
-  
+
   // Add holiday package specific fields
   enquiryData.adults = adults;
   enquiryData.children = children || 0;
@@ -331,20 +331,20 @@ const handleHolidayPackageEnquiry = async (req: Request, res: Response, enquiryD
   enquiryData.budget = finalBudget;
   enquiryData.nights = nights;
 
-   if (staycation !== undefined) {
+  if (staycation !== undefined) {
     enquiryData.staycation = staycation;
   }
   // Create and save enquiry
   const newEnquiry = new Enquiry(enquiryData);
   const savedEnquiry = await newEnquiry.save();
-  
+
   res.status(201).json({
     message: 'Holiday package enquiry submitted successfully',
     enquiry: savedEnquiry
   });
 };
 // Handler for holiday package enquiries
-const handleDealEnquiry = async (req: Request, res: Response, enquiryData: any,travelDate: any): Promise<any> => {
+const handleDealEnquiry = async (req: Request, res: Response, enquiryData: any, travelDate: any): Promise<any> => {
   const {
     adults,
     nights,
@@ -354,19 +354,19 @@ const handleDealEnquiry = async (req: Request, res: Response, enquiryData: any,t
     children,
     childAges
   } = req.body;
-  
+
   // Validate package
   if (!mongoose.Types.ObjectId.isValid(dealId)) {
     return res.status(400).json({ message: 'Invalid package ID' });
   }
-  
+
   const dealExists = await Deal.findById(dealId);
   if (!dealExists) {
     return res.status(400).json({
       message: 'Invalid Deals selected'
     });
   }
-  
+
   // Determine budget (use package discounted price if not provided)
   // const finalBudget = budget || dealExists.pricing[0].adultPrice;
   const parsedTravelDate = new Date(travelDate);
@@ -391,20 +391,27 @@ const handleDealEnquiry = async (req: Request, res: Response, enquiryData: any,t
   //   // });
   //   return 0;
   // }
-  const matchingPricing = dealExists.pricing.find(price => {
-    const priceDate = new Date(price.date);
-    return priceDate.getFullYear() === parsedTravelDate.getFullYear() &&
-           priceDate.getMonth() === parsedTravelDate.getMonth() &&
-           priceDate.getDate() === parsedTravelDate.getDate();
-  });
-
-  // If no matching pricing is found, use 0 for prices
+  // Determine pricing based on deal type
   let adultPrice = 0;
   let childPrice = 0;
-  
-  if (matchingPricing) {
-    adultPrice = matchingPricing.adultPrice;
-    childPrice = matchingPricing.childPrice;
+
+  if (typeof dealExists.pricing === 'number') {
+    // Private deal: single price for both
+    adultPrice = dealExists.pricing;
+    childPrice = dealExists.pricing;
+  } else if (Array.isArray(dealExists.pricing)) {
+    // Public deal: find specific date pricing
+    const matchingPricing = (dealExists.pricing as any[]).find(price => {
+      const priceDate = new Date(price.date);
+      return priceDate.getFullYear() === parsedTravelDate.getFullYear() &&
+        priceDate.getMonth() === parsedTravelDate.getMonth() &&
+        priceDate.getDate() === parsedTravelDate.getDate();
+    });
+
+    if (matchingPricing) {
+      adultPrice = matchingPricing.adultPrice;
+      childPrice = matchingPricing.childPrice;
+    }
   }
 
   // Calculate total price based on adults and children
@@ -412,11 +419,11 @@ const handleDealEnquiry = async (req: Request, res: Response, enquiryData: any,t
   const childTotal = childPrice * (children || 0);
   const totalPrice = adultTotal + childTotal;
 
-  
-  
+
+
   // Determine budget (use calculated total price if not provided)
   const finalBudget = budget || totalPrice;
-  
+
   // Validate childAges if children are present
   if (children > 0) {
     // Check if childAges is provided and is an array
@@ -425,14 +432,14 @@ const handleDealEnquiry = async (req: Request, res: Response, enquiryData: any,t
         message: 'Child ages must be provided as an array when children are present'
       });
     }
-    
+
     // Check if the number of ages matches the number of children
     if (childAges.length !== children) {
       return res.status(400).json({
         message: 'Number of child ages must match the number of children'
       });
     }
-    
+
     // Validate each age
     for (const age of childAges) {
       if (typeof age !== 'number' || age < 0 || age > 17) {
@@ -442,7 +449,7 @@ const handleDealEnquiry = async (req: Request, res: Response, enquiryData: any,t
       }
     }
   }
-  
+
   // Add holiday package specific fields
   enquiryData.adults = adults;
   enquiryData.children = children || 0;
@@ -451,11 +458,11 @@ const handleDealEnquiry = async (req: Request, res: Response, enquiryData: any,t
   enquiryData.hotelStars = hotelStars;
   enquiryData.dealId = dealId;
   enquiryData.budget = finalBudget;
-  
+
   // Create and save enquiry
   const newEnquiry = new Enquiry(enquiryData);
   const savedEnquiry = await newEnquiry.save();
-  
+
   res.status(201).json({
     message: 'Deals enquiry submitted successfully',
     enquiry: savedEnquiry
@@ -467,22 +474,22 @@ const handleHoneymoonPackageEnquiry = async (req: Request, res: Response, enquir
     packageId,
     budget
   } = req.body;
-  
+
   // Validate package
   if (!mongoose.Types.ObjectId.isValid(packageId)) {
     return res.status(400).json({ message: 'Invalid package ID' });
   }
-  
+
   const packageExists = await HolidayPackage.findById(packageId);
   if (!packageExists) {
     return res.status(400).json({
       message: 'Invalid package selected'
     });
   }
-  
+
   // Determine budget (use package discounted price if not provided)
   const finalBudget = budget || packageExists.discountPrice;
-  
+
   // Validate childAges if children are present
   // if (children > 0) {
   //   // Check if childAges is provided and is an array
@@ -491,14 +498,14 @@ const handleHoneymoonPackageEnquiry = async (req: Request, res: Response, enquir
   //       message: 'Child ages must be provided as an array when children are present'
   //     });
   //   }
-    
+
   //   // Check if the number of ages matches the number of children
   //   if (childAges.length !== children) {
   //     return res.status(400).json({
   //       message: 'Number of child ages must match the number of children'
   //     });
   //   }
-    
+
   //   // Validate each age
   //   for (const age of childAges) {
   //     if (typeof age !== 'number' || age < 0 || age > 17) {
@@ -508,18 +515,18 @@ const handleHoneymoonPackageEnquiry = async (req: Request, res: Response, enquir
   //     }
   //   }
   // }
-  
+
   // Add holiday package specific fields
   enquiryData.adults = adults || 2;
   // enquiryData.children = children || 0;
   // enquiryData.childAges = children > 0 ? childAges : undefined;
   enquiryData.packageId = packageId;
   enquiryData.budget = finalBudget;
-  
+
   // Create and save enquiry
   const newEnquiry = new Enquiry(enquiryData);
   const savedEnquiry = await newEnquiry.save();
-  
+
   res.status(201).json({
     message: 'Holiday package enquiry submitted successfully',
     enquiry: savedEnquiry
@@ -536,15 +543,15 @@ const handleCarServiceEnquiry = async (req: Request, res: Response, enquiryData:
     vehicleId,
     budget
   } = req.body;
-  
 
 
-  
+
+
   // Validate vehicle
   if (!mongoose.Types.ObjectId.isValid(vehicleId)) {
     return res.status(400).json({ message: 'Invalid vehicle ID' });
   }
-  
+
   const vehicleExists = await Vehicle.findById(vehicleId);
   if (!vehicleExists) {
     return res.status(400).json({
@@ -558,20 +565,20 @@ const handleCarServiceEnquiry = async (req: Request, res: Response, enquiryData:
       message: 'Selected vehicle is not currently available'
     });
   }
-  
+
   // Validate required fields
   if (!pickupLocation || !dropoffLocation) {
     return res.status(400).json({
       message: 'Pickup location and dropoff location are required'
     });
   }
-  
+
   if (!numberOfGuests || numberOfGuests < 1) {
     return res.status(400).json({
       message: 'Number of guests must be at least 1'
     });
   }
-  
+
   // Add car service specific fields
   enquiryData.pickupLocation = pickupLocation;
   enquiryData.dropoffLocation = dropoffLocation;
@@ -579,11 +586,11 @@ const handleCarServiceEnquiry = async (req: Request, res: Response, enquiryData:
   enquiryData.numberOfLuggageBags = numberOfLuggageBags || 0;
   enquiryData.vehicleId = vehicleId;
   enquiryData.budget = finalBudget;
-  
+
   // Create and save enquiry
   const newEnquiry = new Enquiry(enquiryData);
   const savedEnquiry = await newEnquiry.save();
-  
+
   res.status(201).json({
     message: 'Car service enquiry submitted successfully',
     enquiry: savedEnquiry
@@ -615,9 +622,9 @@ export const getAllEnquiries = async (req: Request, res: Response) => {
       totalEnquiries: total
     });
   } catch (error: any) {
-    res.status(500).json({ 
-      message: 'Error fetching enquiries', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Error fetching enquiries',
+      error: error.message
     });
   }
 };
@@ -628,7 +635,7 @@ export const getAllEnquirieswithpagination = async (req: Request, res: Response)
       .sort({ createdAt: -1 })
       .populate('packageId', 'name destination')
       .populate('vehicleId', 'vehicleModel ratePerKm')
-      .populate('dealId','title');
+      .populate('dealId', 'title');
 
     const total = enquiries.length;
 
@@ -637,15 +644,15 @@ export const getAllEnquirieswithpagination = async (req: Request, res: Response)
       totalEnquiries: total
     });
   } catch (error: any) {
-    res.status(500).json({ 
-      message: 'Error fetching enquiries', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Error fetching enquiries',
+      error: error.message
     });
   }
 };
 
 // Update enquiry status
-export const updateEnquiryStatus = async (req: Request, res: Response) : Promise<any>=> {
+export const updateEnquiryStatus = async (req: Request, res: Response): Promise<any> => {
   try {
     const { id } = req.params;
     const { status } = req.body;
@@ -653,20 +660,20 @@ export const updateEnquiryStatus = async (req: Request, res: Response) : Promise
     // Validate status
     const validStatuses = ['Pending', 'Contacted', 'Booked', 'Cancelled'];
     if (!validStatuses.includes(status)) {
-      return res.status(400).json({ 
-        message: 'Invalid status' 
+      return res.status(400).json({
+        message: 'Invalid status'
       });
     }
 
     const updatedEnquiry = await Enquiry.findByIdAndUpdate(
-      id, 
-      { status }, 
+      id,
+      { status },
       { new: true, runValidators: true }
     );
 
     if (!updatedEnquiry) {
-      return res.status(404).json({ 
-        message: 'Enquiry not found' 
+      return res.status(404).json({
+        message: 'Enquiry not found'
       });
     }
 
@@ -675,9 +682,9 @@ export const updateEnquiryStatus = async (req: Request, res: Response) : Promise
       enquiry: updatedEnquiry
     });
   } catch (error: any) {
-    res.status(500).json({ 
-      message: 'Error updating enquiry', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Error updating enquiry',
+      error: error.message
     });
   }
 };

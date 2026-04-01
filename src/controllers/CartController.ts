@@ -8,12 +8,12 @@ import { Booking, BookingStatus } from '../models/Booking';
 import Stripe from 'stripe';
 import dotenv from "dotenv";
 import { sendEmailOfBookNotification } from '../utils/EmailHelper';
-import { 
-  convertCartCurrency, 
-  convertCartWithCleanResponse, 
-  isValidCurrency, 
+import {
+  convertCartCurrency,
+  convertCartWithCleanResponse,
+  isValidCurrency,
   getSupportedCurrencies,
-  formatPrice 
+  formatPrice
 } from '../services/currencyExchangeCart';
 
 dotenv.config();
@@ -22,9 +22,9 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_51RRPYdQOenf
 // Helper function for error handling
 const handleError = (res: Response, error: unknown, message: string = 'An error occurred') => {
   console.error(message, error);
-  res.status(500).json({ 
-    message, 
-    error: error instanceof Error ? error.message : 'Unknown error' 
+  res.status(500).json({
+    message,
+    error: error instanceof Error ? error.message : 'Unknown error'
   });
 };
 
@@ -214,16 +214,27 @@ export const addItemToCart = async (req: Request, res: Response): Promise<any> =
     }
 
     // Pricing logic
-    const pricing = dealDoc.pricing
-      .filter(p => p.date <= parsedDate)
-      .sort((a, b) => b.date.getTime() - a.date.getTime())[0];
+    // Pricing logic
+    let adultPrice: number;
+    let childPrice: number;
 
-    if (!pricing) {
-      return res.status(400).json({ message: 'No pricing available for the selected date' });
+    if (typeof dealDoc.pricing === 'number') {
+      adultPrice = dealDoc.pricing;
+      childPrice = dealDoc.pricing;
+    } else if (Array.isArray(dealDoc.pricing)) {
+      const pricing = (dealDoc.pricing as any[])
+        .filter(p => new Date(p.date) <= parsedDate)
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+
+      if (!pricing) {
+        return res.status(400).json({ message: 'No pricing available for the selected date' });
+      }
+      adultPrice = pricing.adultPrice;
+      childPrice = pricing.childPrice;
+    } else {
+      return res.status(400).json({ message: 'Invalid pricing configuration' });
     }
 
-    const adultPrice = pricing.adultPrice;
-    const childPrice = pricing.childPrice;
     const subtotal = (numberOfAdults * adultPrice) + (numberOfChildren * childPrice);
 
     // Create the cart item
@@ -348,37 +359,37 @@ export const removeItemFromCart = async (req: Request, res: Response): Promise<a
 
     const { currency } = req.query;
     const index = parseInt(itemIndex, 10);
-    
+
     // Validate index
     if (isNaN(index) || index < 0) {
-      return res.status(400).json({ 
-        message: 'Invalid item index' 
+      return res.status(400).json({
+        message: 'Invalid item index'
       });
     }
-    
+
     // Find cart
     const cart = await Cart.findOne({ cartId });
-    
+
     if (!cart) {
-      return res.status(404).json({ 
-        message: 'Cart not found' 
+      return res.status(404).json({
+        message: 'Cart not found'
       });
     }
-    
+
     // Check if item exists
     if (index >= cart.items.length) {
-      return res.status(404).json({ 
-        message: 'Item not found in cart' 
+      return res.status(404).json({
+        message: 'Item not found in cart'
       });
     }
-    
+
     // Remove item
     cart.items.splice(index, 1);
-    
+
     // Reset expiry and save cart
     cart.expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours from now
     await cart.save();
-    
+
     // Populate and return updated cart
     const updatedCart = await Cart.findOne({ cartId })
       .populate('items.activity', 'name category images')
@@ -400,13 +411,13 @@ export const removeItemFromCart = async (req: Request, res: Response): Promise<a
         });
       }
     }
-    
+
     res.status(200).json({
       message: 'Item removed from cart successfully',
       cart: updatedCart,
       sessionId: req.query.sessionid
     });
-    
+
   } catch (error) {
     handleError(res, error, 'Error removing item from cart');
   }
@@ -424,52 +435,52 @@ export const updateCartItem = async (req: Request, res: Response): Promise<any> 
     if (!cartId) {
       cartId = getOrCreateSessionId(req);
     }
-    
+
     const { numberOfAdults, numberOfChildren } = req.body;
     const { currency } = req.query;
     const index = parseInt(itemIndex, 10);
-    
+
     // Validate index
     if (isNaN(index) || index < 0) {
-      return res.status(400).json({ 
-        message: 'Invalid item index' 
+      return res.status(400).json({
+        message: 'Invalid item index'
       });
     }
-    
+
     // Find cart
     const cart = await Cart.findOne({ cartId });
-    
+
     if (!cart) {
-      return res.status(404).json({ 
-        message: 'Cart not found' 
+      return res.status(404).json({
+        message: 'Cart not found'
       });
     }
-    
+
     // Check if item exists
     if (index >= cart.items.length) {
-      return res.status(404).json({ 
-        message: 'Item not found in cart' 
+      return res.status(404).json({
+        message: 'Item not found in cart'
       });
     }
-    
+
     // Update quantities
     if (typeof numberOfAdults === 'number' && numberOfAdults >= 0) {
       cart.items[index].numberOfAdults = numberOfAdults;
     }
-    
+
     if (typeof numberOfChildren === 'number' && numberOfChildren >= 0) {
       cart.items[index].numberOfChildren = numberOfChildren;
     }
-    
+
     // Recalculate subtotal
-    cart.items[index].subtotal = 
-      (cart.items[index].numberOfAdults * cart.items[index].adultPrice) + 
+    cart.items[index].subtotal =
+      (cart.items[index].numberOfAdults * cart.items[index].adultPrice) +
       (cart.items[index].numberOfChildren * cart.items[index].childPrice);
-    
+
     // Reset expiry and save cart
     cart.expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours from now
     await cart.save();
-    
+
     // Populate and return updated cart
     const updatedCart = await Cart.findOne({ cartId })
       .populate('items.activity', 'name category images')
@@ -491,13 +502,13 @@ export const updateCartItem = async (req: Request, res: Response): Promise<any> 
         });
       }
     }
-    
+
     res.status(200).json({
       message: 'Cart item updated successfully',
       cart: updatedCart,
       sessionId: req.query.sessionid
     });
-    
+
   } catch (error) {
     handleError(res, error, 'Error updating cart item');
   }
@@ -517,22 +528,22 @@ export const clearCart = async (req: Request, res: Response): Promise<any> => {
     if (!cartId) {
       cartId = getOrCreateSessionId(req);
     }
-    
+
     const { currency } = req.query;
-    
+
     // Find cart
     const cart = await Cart.findOne({ cartId });
-    
+
     if (!cart) {
-      return res.status(404).json({ 
-        message: 'Cart not found' 
+      return res.status(404).json({
+        message: 'Cart not found'
       });
     }
-    
+
     // Clear items and reset total amount
     cart.items = [];
     cart.totalAmount = 0;
-    
+
     // Reset expiry and save cart
     cart.expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours from now
     await cart.save();
@@ -541,7 +552,7 @@ export const clearCart = async (req: Request, res: Response): Promise<any> => {
     const updatedCart = await Cart.findOne({ cartId })
       .populate('items.activity', 'name category images')
       .populate('items.deal', 'title description');
-    
+
     // If currency is requested and different from AED, convert the response
     if (currency && currency !== 'AED') {
       if (await isValidCurrency(currency as string)) {
@@ -558,13 +569,13 @@ export const clearCart = async (req: Request, res: Response): Promise<any> => {
         });
       }
     }
-    
+
     res.status(200).json({
       message: 'Cart cleared successfully',
       cart: updatedCart,
       sessionId: req.query.sessionid
     });
-    
+
   } catch (error) {
     handleError(res, error, 'Error clearing cart');
   }
@@ -572,29 +583,29 @@ export const clearCart = async (req: Request, res: Response): Promise<any> => {
 
 // export const checkoutCart = async (req: Request, res: Response): Promise<any> => {
 //   const session = await mongoose.startSession();
-  
+
 //   try {
 //     // Start transaction
 //     session.startTransaction();
-    
+
 //     // Get cart ID (from params or session) - properly type cast
 //     let { cartId } = req.params;
 //     if (!cartId) {
 //       cartId = getOrCreateSessionId(req);
 //     }
-    
+
 //     const { email, phoneNumber, firstName, lastName, title } = req.body;
-    
+
 //     // Properly handle currency query parameter with type assertion
 //     const currency = typeof req.query.currency === 'string' ? req.query.currency : undefined;
-    
+
 //     // Validate required fields
 //     if (!email || !phoneNumber) {
 //       return res.status(400).json({
 //         message: 'Email and phone number are required'
 //       });
 //     }
-    
+
 //     // Validate email format
 //     const emailRegex = /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/;
 //     if (!emailRegex.test(email)) {
@@ -602,7 +613,7 @@ export const clearCart = async (req: Request, res: Response): Promise<any> => {
 //         message: 'Invalid email format'
 //       });
 //     }
-    
+
 //     // Validate phone number
 //     const phoneRegex = /^\+?[1-9]\d{1,14}$/;
 //     if (!phoneRegex.test(phoneNumber)) {
@@ -620,13 +631,13 @@ export const clearCart = async (req: Request, res: Response): Promise<any> => {
 //         });
 //       }
 //     }
-    
+
 //     // Find cart and populate activity data
 //     const cart = await Cart.findOne({ cartId })
 //       .populate('items.activity', 'name')
 //       .populate('items.deal', 'title')
 //       .session(session);
-    
+
 //     if (!cart) {
 //       await session.abortTransaction();
 //       session.endSession();
@@ -634,7 +645,7 @@ export const clearCart = async (req: Request, res: Response): Promise<any> => {
 //         message: 'Cart not found'
 //       });
 //     }
-    
+
 //     // Check if cart is empty
 //     if (cart.items.length === 0) {
 //       await session.abortTransaction();
@@ -647,7 +658,7 @@ export const clearCart = async (req: Request, res: Response): Promise<any> => {
 //     // Convert cart to requested currency for display purposes
 //     let displayCart = cart;
 //     let currencyInfo = null;
-    
+
 //     if (currency && currency !== 'AED') {
 //       const conversionResult = await convertCartCurrency(cartId, currency, 'AED');
 //       if (conversionResult.success) {
@@ -684,12 +695,12 @@ export const clearCart = async (req: Request, res: Response): Promise<any> => {
 //       lastName,
 //       title
 //     });
-    
+
 //     await booking.save({ session });
-    
+
 //     // Properly handle sessionid query parameter
 //     const sessionId = typeof req.query.sessionid === 'string' ? req.query.sessionid : undefined;
-    
+
 //     // Create Stripe checkout session (Stripe always processes in AED for consistency)
 //     const stripeSession = await stripe.checkout.sessions.create({
 //       line_items: cart.items.map(item => ({
@@ -715,10 +726,10 @@ export const clearCart = async (req: Request, res: Response): Promise<any> => {
 //         displayCurrency: currency ? currency : 'AED', // Store display currency for reference
 //       }
 //     });
-    
+
 //     // Commit transaction
 //     await session.commitTransaction();
-    
+
 //     // Prepare response with appropriate currency display
 //     const response: any = {
 //       message: 'Checkout initiated successfully',
@@ -734,9 +745,9 @@ export const clearCart = async (req: Request, res: Response): Promise<any> => {
 //     if (currencyInfo) {
 //       response.currencyInfo = currencyInfo;
 //     }
-    
+
 //     res.status(201).json(response);
-    
+
 //   } catch (error) {
 //     // Abort transaction on error
 //     await session.abortTransaction();
@@ -749,30 +760,30 @@ export const clearCart = async (req: Request, res: Response): Promise<any> => {
 
 export const checkoutCart = async (req: Request, res: Response): Promise<any> => {
   const session = await mongoose.startSession();
-  
+
   try {
     // Start transaction
     session.startTransaction();
-    
+
     // Get cart ID (from params or session)
     let { cartId } = req.params;
     if (!cartId) {
       cartId = getOrCreateSessionId(req);
     }
-    
-    const { email, phoneNumber, firstName, lastName, title,comment  } = req.body;
-    
+
+    const { email, phoneNumber, firstName, lastName, title, comment } = req.body;
+
     // Properly handle currency query parameter
     const currency = typeof req.query.currency === 'string' ? req.query.currency : 'AED';
     const sessionId = typeof req.query.sessionid === 'string' ? req.query.sessionid : undefined;
-    
+
     // Validate required fields
     if (!email || !phoneNumber) {
       return res.status(400).json({
         message: 'Email and phone number are required'
       });
     }
-    
+
     // Validate email format
     const emailRegex = /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/;
     if (!emailRegex.test(email)) {
@@ -780,7 +791,7 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
         message: 'Invalid email format'
       });
     }
-    
+
     // Validate phone number
     const phoneRegex = /^\+?[1-9]\d{1,14}$/;
     if (!phoneRegex.test(phoneNumber)) {
@@ -798,13 +809,13 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
         });
       }
     }
-    
+
     // Find cart and populate activity data
     const cart = await Cart.findOne({ cartId })
       .populate('items.activity', 'name')
       .populate('items.deal', 'title')
       .session(session);
-    
+
     if (!cart) {
       await session.abortTransaction();
       session.endSession();
@@ -812,7 +823,7 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
         message: 'Cart not found'
       });
     }
-    
+
     // Check if cart is empty
     if (cart.items.length === 0) {
       await session.abortTransaction();
@@ -825,7 +836,7 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
     // Convert cart to requested currency for both display and processing
     let processedCart = cart;
     let currencyInfo = null;
-    
+
     if (currency !== 'AED') {
       const conversionResult = await convertCartCurrency(cartId, currency, 'AED');
       if (conversionResult.success) {
@@ -870,9 +881,9 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
       title,
       comment
     });
-    
+
     await booking.save({ session });
-    
+
     // Create Stripe checkout session in the requested currency
     const stripeSession = await stripe.checkout.sessions.create({
       line_items: processedCart.items.map(item => ({
@@ -897,10 +908,10 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
         processingCurrency: currency
       }
     });
-    
+
     // Commit transaction
     await session.commitTransaction();
-    
+
     // Prepare response
     const response: any = {
       message: 'Checkout initiated successfully',
@@ -917,9 +928,9 @@ export const checkoutCart = async (req: Request, res: Response): Promise<any> =>
     if (currencyInfo) {
       response.currencyInfo = currencyInfo;
     }
-    
+
     res.status(201).json(response);
-    
+
   } catch (error) {
     // Abort transaction on error
     await session.abortTransaction();
@@ -956,7 +967,7 @@ export const completeCheckout = async (req: Request, res: Response): Promise<any
 
     // Find the cart
     const cart = await Cart.findOne({ cartId });
-    
+
     if (!cart) {
       return res.status(404).send('Cart not found');
     }
@@ -999,8 +1010,8 @@ export const completeCheckout = async (req: Request, res: Response): Promise<any
     //     phoneNumber: completedBooking?.phoneNumber
     //   }
     // });
-     await sendEmailOfBookNotification(completedBooking,stripeSession);
-     res.redirect(`${process.env.REDIRCT_URL_SUCCESS}`);
+    await sendEmailOfBookNotification(completedBooking, stripeSession);
+    res.redirect(`${process.env.REDIRCT_URL_SUCCESS}`);
 
   } catch (error) {
     console.error('Error completing checkout:', error);
@@ -1012,7 +1023,7 @@ export const cancelCheckout = async (req: Request, res: Response): Promise<any> 
     const cartId = req.query.cart_id as string;
     const sessionId = req.query.session_id as string;
     console.log(sessionId, "session id for cancellation");
-    console.log(cartId,"cart id for cancellation");
+    console.log(cartId, "cart id for cancellation");
 
     // Cancel the Stripe session if session_id is provided
     if (sessionId) {
@@ -1030,7 +1041,7 @@ export const cancelCheckout = async (req: Request, res: Response): Promise<any> 
       try {
         // Find the cart first
         const cart = await Cart.findOne({ cartId });
-        
+
         if (cart) {
           // Update the single booking that references this cart
           const updateResult = await Booking.updateOne(
@@ -1042,9 +1053,9 @@ export const cancelCheckout = async (req: Request, res: Response): Promise<any> 
               status: BookingStatus.REJECTED
             }
           );
-          
+
           console.log(`Updated booking to REJECTED status for cart ${cartId}`);
-          
+
           if (updateResult.modifiedCount === 0) {
             console.log(`No pending booking found for cart ${cartId}`);
           }

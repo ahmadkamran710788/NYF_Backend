@@ -80,12 +80,12 @@
 // // Get current exchange rates (with caching)
 // export const getExchangeRates = async (): Promise<ExchangeRates> => {
 //   const now = new Date();
-  
+
 //   if (!lastUpdated || (now.getTime() - lastUpdated.getTime()) > CACHE_DURATION) {
 //     exchangeRatesCache = await fetchExchangeRates();
 //     lastUpdated = now;
 //   }
-  
+
 //   return exchangeRatesCache;
 // };
 
@@ -97,7 +97,7 @@
 
 //   const rates = await getExchangeRates();
 //   const rate = rates[targetCurrency.toUpperCase()];
-  
+
 //   if (!rate) {
 //     throw new Error(`Exchange rate not found for currency: ${targetCurrency}`);
 //   }
@@ -113,7 +113,7 @@
 
 //   const rates = await getExchangeRates();
 //   const rate = rates[fromCurrency.toUpperCase()];
-  
+
 //   if (!rate) {
 //     throw new Error(`Exchange rate not found for currency: ${fromCurrency}`);
 //   }
@@ -128,27 +128,27 @@
 //   }
 
 //   const rates = await getExchangeRates();
-  
+
 //   if (fromCurrency === 'USD') {
 //     const rate = rates[toCurrency.toUpperCase()];
 //     if (!rate) throw new Error(`Rate not found for ${toCurrency}`);
 //     return rate;
 //   }
-  
+
 //   if (toCurrency === 'USD') {
 //     const rate = rates[fromCurrency.toUpperCase()];
 //     if (!rate) throw new Error(`Rate not found for ${fromCurrency}`);
 //     return 1 / rate;
 //   }
-  
+
 //   // Convert via USD
 //   const fromRate = rates[fromCurrency.toUpperCase()];
 //   const toRate = rates[toCurrency.toUpperCase()];
-  
+
 //   if (!fromRate || !toRate) {
 //     throw new Error(`Rate not found for ${fromCurrency} or ${toCurrency}`);
 //   }
-  
+
 //   return toRate / fromRate;
 // };
 
@@ -190,7 +190,7 @@
 //       } else {
 //         const adultPriceInUSD = await convertToUSD(priceEntry.adultPrice, sourceCurrency);
 //         const childPriceInUSD = await convertToUSD(priceEntry.childPrice, sourceCurrency);
-        
+
 //         convertedAdultPrice = await convertFromUSD(adultPriceInUSD, targetCurrency);
 //         convertedChildPrice = await convertFromUSD(childPriceInUSD, targetCurrency);
 //       }
@@ -242,7 +242,7 @@
 //   try {
 //     // Get conversion rate for currency info
 //     const conversionRate = await getConversionRate(sourceCurrency, targetCurrency);
-    
+
 //     // Convert all deals
 //     const convertedDeals = await Promise.all(
 //       deals.map(deal => convertDealWithCleanResponse(deal, targetCurrency, sourceCurrency))
@@ -279,7 +279,7 @@
 //   const pricingForDate = deal.pricing.find((pricing: any) => {
 //     const pricingDate = new Date(pricing.date);
 //     const searchDate = new Date(targetDate);
-    
+
 //     return (
 //       pricingDate.getFullYear() === searchDate.getFullYear() &&
 //       pricingDate.getMonth() === searchDate.getMonth() &&
@@ -394,7 +394,7 @@
 //   const adultPrice = formatPrice(pricing.adultPrice, currency);
 //   const childPrice = formatPrice(pricing.childPrice, currency);
 //   const date = pricing.date.toISOString().split('T')[0];
-  
+
 //   return `Date: ${date} | Adult: ${adultPrice} | Child: ${childPrice}`;
 // };
 
@@ -424,7 +424,8 @@ export interface CleanedDeal {
   title: string;
   description: string;
   image?: string;
-  pricing: CleanedDealPricing[];
+  dealType?: "public" | "private";
+  pricing: CleanedDealPricing[] | number;
   includes: string[];
   highlights: string[];
   restrictions: string[];
@@ -456,20 +457,20 @@ const fetchExchangeRates = async (): Promise<ExchangeRates> => {
     // Fetch USD-based rates and convert to AED-based rates
     const response = await axios.get('https://api.exchangerate-api.com/v4/latest/USD');
     const usdRates = response.data.rates;
-    
+
     // Convert USD-based rates to AED-based rates
     const aedToUsdRate = 1 / usdRates.AED;
     const aedBasedRates: ExchangeRates = {
       AED: 1, // Base currency
     };
-    
+
     // Convert all rates to AED base
     Object.keys(usdRates).forEach(currency => {
       if (currency !== 'AED') {
         aedBasedRates[currency] = usdRates[currency] * aedToUsdRate;
       }
     });
-    
+
     return aedBasedRates;
   } catch (error) {
     console.error('Failed to fetch exchange rates:', error);
@@ -497,12 +498,12 @@ const fetchExchangeRates = async (): Promise<ExchangeRates> => {
 // Get current exchange rates (with caching)
 export const getExchangeRates = async (): Promise<ExchangeRates> => {
   const now = new Date();
-  
+
   if (!lastUpdated || (now.getTime() - lastUpdated.getTime()) > CACHE_DURATION) {
     exchangeRatesCache = await fetchExchangeRates();
     lastUpdated = now;
   }
-  
+
   return exchangeRatesCache;
 };
 
@@ -514,7 +515,7 @@ export const convertFromAED = async (amount: number, targetCurrency: string): Pr
 
   const rates = await getExchangeRates();
   const rate = rates[targetCurrency.toUpperCase()];
-  
+
   if (!rate) {
     throw new Error(`Exchange rate not found for currency: ${targetCurrency}`);
   }
@@ -530,7 +531,7 @@ export const convertToAED = async (amount: number, fromCurrency: string): Promis
 
   const rates = await getExchangeRates();
   const rate = rates[fromCurrency.toUpperCase()];
-  
+
   if (!rate) {
     throw new Error(`Exchange rate not found for currency: ${fromCurrency}`);
   }
@@ -545,27 +546,27 @@ export const getConversionRate = async (fromCurrency: string, toCurrency: string
   }
 
   const rates = await getExchangeRates();
-  
+
   if (fromCurrency === 'AED') {
     const rate = rates[toCurrency.toUpperCase()];
     if (!rate) throw new Error(`Rate not found for ${toCurrency}`);
     return rate;
   }
-  
+
   if (toCurrency === 'AED') {
     const rate = rates[fromCurrency.toUpperCase()];
     if (!rate) throw new Error(`Rate not found for ${fromCurrency}`);
     return 1 / rate;
   }
-  
+
   // Convert via AED
   const fromRate = rates[fromCurrency.toUpperCase()];
   const toRate = rates[toCurrency.toUpperCase()];
-  
+
   if (!fromRate || !toRate) {
     throw new Error(`Rate not found for ${fromCurrency} or ${toCurrency}`);
   }
-  
+
   return toRate / fromRate;
 };
 
@@ -582,10 +583,26 @@ const cleanActivityDetails = (activity: any): CleanedActivityDetails => {
 
 // Convert deal pricing array to target currency
 const convertDealPricing = async (
-  pricing: any[], 
-  sourceCurrency: string, 
+  pricing: any,
+  sourceCurrency: string,
   targetCurrency: string
-): Promise<CleanedDealPricing[]> => {
+): Promise<CleanedDealPricing[] | number> => {
+  if (typeof pricing === 'number') {
+    if (sourceCurrency === targetCurrency) {
+      return pricing;
+    }
+
+    // For single number pricing, assume it's like a total price or per person price
+    if (sourceCurrency === 'AED') {
+      return await convertFromAED(pricing, targetCurrency);
+    } else if (targetCurrency === 'AED') {
+      return await convertToAED(pricing, sourceCurrency);
+    } else {
+      const priceInAED = await convertToAED(pricing, sourceCurrency);
+      return await convertFromAED(priceInAED, targetCurrency);
+    }
+  }
+
   if (!pricing || !Array.isArray(pricing)) {
     return [];
   }
@@ -607,7 +624,7 @@ const convertDealPricing = async (
       } else {
         const adultPriceInAED = await convertToAED(priceEntry.adultPrice, sourceCurrency);
         const childPriceInAED = await convertToAED(priceEntry.childPrice, sourceCurrency);
-        
+
         convertedAdultPrice = await convertFromAED(adultPriceInAED, targetCurrency);
         convertedChildPrice = await convertFromAED(childPriceInAED, targetCurrency);
       }
@@ -623,14 +640,14 @@ const convertDealPricing = async (
 
 // Convert a single deal to target currency with cleaned response
 export const convertDealWithCleanResponse = async (
-  deal: any, 
+  deal: any,
   targetCurrency: string,
   sourceCurrency: string = 'AED'
 ): Promise<CleanedDeal> => {
   // Convert pricing array
   const convertedPricing = await convertDealPricing(
-    deal.pricing, 
-    sourceCurrency, 
+    deal.pricing,
+    sourceCurrency,
     targetCurrency
   );
 
@@ -639,6 +656,7 @@ export const convertDealWithCleanResponse = async (
     title: deal.title,
     description: deal.description,
     image: deal.image,
+    dealType: deal.dealType,
     pricing: convertedPricing,
     includes: deal.includes || [],
     highlights: deal.highlights || [],
@@ -652,14 +670,14 @@ export const convertDealWithCleanResponse = async (
 
 // Convert multiple deals with cleaned response
 export const convertDealsWithCleanResponse = async (
-  deals: any[], 
+  deals: any[],
   targetCurrency: string = 'AED',
   sourceCurrency: string = 'AED'
 ): Promise<DealCurrencyConversionResponse> => {
   try {
     // Get conversion rate for currency info
     const conversionRate = await getConversionRate(sourceCurrency, targetCurrency);
-    
+
     // Convert all deals
     const convertedDeals = await Promise.all(
       deals.map(deal => convertDealWithCleanResponse(deal, targetCurrency, sourceCurrency))
@@ -687,7 +705,12 @@ export const convertDealPricingForDate = async (
   targetDate: Date,
   targetCurrency: string,
   sourceCurrency: string = 'AED'
-): Promise<CleanedDealPricing | null> => {
+): Promise<CleanedDealPricing | number | null> => {
+  // If deal pricing is a number (private deal), it applies to all dates
+  if (typeof deal.pricing === 'number') {
+    return (await convertDealPricing(deal.pricing, sourceCurrency, targetCurrency)) as number;
+  }
+
   if (!deal.pricing || !Array.isArray(deal.pricing)) {
     return null;
   }
@@ -696,7 +719,7 @@ export const convertDealPricingForDate = async (
   const pricingForDate = deal.pricing.find((pricing: any) => {
     const pricingDate = new Date(pricing.date);
     const searchDate = new Date(targetDate);
-    
+
     return (
       pricingDate.getFullYear() === searchDate.getFullYear() &&
       pricingDate.getMonth() === searchDate.getMonth() &&
@@ -710,12 +733,12 @@ export const convertDealPricingForDate = async (
 
   // Convert the pricing
   const convertedPricing = await convertDealPricing(
-    [pricingForDate], 
-    sourceCurrency, 
+    [pricingForDate],
+    sourceCurrency,
     targetCurrency
   );
 
-  return convertedPricing[0] || null;
+  return (convertedPricing as CleanedDealPricing[])[0] || null;
 };
 
 // Get deals with pricing for specific activity and date with currency conversion
@@ -731,6 +754,11 @@ export const getDealsWithCurrencyConversion = async (
     // If filterDate is provided, filter deals that have pricing for that date
     if (filterDate) {
       processedDeals = deals.filter(deal => {
+        // If pricing is a number (private deal), it applies to all dates, so we keep it
+        if (typeof deal.pricing === 'number') {
+          return true;
+        }
+
         if (!deal.pricing || !Array.isArray(deal.pricing)) {
           return false;
         }
@@ -745,18 +773,24 @@ export const getDealsWithCurrencyConversion = async (
         });
       });
 
-      // For filtered deals, only keep pricing for the specific date
-      processedDeals = processedDeals.map(deal => ({
-        ...deal,
-        pricing: deal.pricing.filter((pricing: any) => {
-          const pricingDate = new Date(pricing.date);
-          return (
-            pricingDate.getFullYear() === filterDate.getFullYear() &&
-            pricingDate.getMonth() === filterDate.getMonth() &&
-            pricingDate.getDate() === filterDate.getDate()
-          );
-        })
-      }));
+      // For filtered deals, only keep pricing for the specific date (if it's array based)
+      processedDeals = processedDeals.map(deal => {
+        if (typeof deal.pricing === 'number') {
+          return deal;
+        }
+
+        return {
+          ...deal,
+          pricing: deal.pricing.filter((pricing: any) => {
+            const pricingDate = new Date(pricing.date);
+            return (
+              pricingDate.getFullYear() === filterDate.getFullYear() &&
+              pricingDate.getMonth() === filterDate.getMonth() &&
+              pricingDate.getDate() === filterDate.getDate()
+            );
+          })
+        };
+      });
     }
 
     return await convertDealsWithCleanResponse(processedDeals, targetCurrency, sourceCurrency);
@@ -811,6 +845,6 @@ export const formatDealPricing = (pricing: CleanedDealPricing, currency: string)
   const adultPrice = formatPrice(pricing.adultPrice, currency);
   const childPrice = formatPrice(pricing.childPrice, currency);
   const date = pricing.date.toISOString().split('T')[0];
-  
+
   return `Date: ${date} | Adult: ${adultPrice} | Child: ${childPrice}`;
 };
