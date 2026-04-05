@@ -586,13 +586,30 @@ const convertDealPricing = async (
   pricing: any,
   sourceCurrency: string,
   targetCurrency: string
-): Promise<CleanedDealPricing[] | number> => {
+): Promise<any> => {
+  // New private deal format: object with totalPrice
+  if (pricing && typeof pricing === 'object' && !Array.isArray(pricing) && 'totalPrice' in pricing) {
+    if (sourceCurrency === targetCurrency) {
+      return pricing;
+    }
+    const converted = { ...pricing };
+    if (sourceCurrency === 'AED') {
+      converted.totalPrice = await convertFromAED(pricing.totalPrice, targetCurrency);
+    } else if (targetCurrency === 'AED') {
+      converted.totalPrice = await convertToAED(pricing.totalPrice, sourceCurrency);
+    } else {
+      const priceInAED = await convertToAED(pricing.totalPrice, sourceCurrency);
+      converted.totalPrice = await convertFromAED(priceInAED, targetCurrency);
+    }
+    return converted;
+  }
+
+  // Legacy private deal format: single number
   if (typeof pricing === 'number') {
     if (sourceCurrency === targetCurrency) {
       return pricing;
     }
 
-    // For single number pricing, assume it's like a total price or per person price
     if (sourceCurrency === 'AED') {
       return await convertFromAED(pricing, targetCurrency);
     } else if (targetCurrency === 'AED') {
@@ -706,7 +723,10 @@ export const convertDealPricingForDate = async (
   targetCurrency: string,
   sourceCurrency: string = 'AED'
 ): Promise<CleanedDealPricing | number | null> => {
-  // If deal pricing is a number (private deal), it applies to all dates
+  // Private deal (new object format or legacy number) - applies to all dates
+  if (deal.pricing && typeof deal.pricing === 'object' && !Array.isArray(deal.pricing) && 'totalPrice' in deal.pricing) {
+    return await convertDealPricing(deal.pricing, sourceCurrency, targetCurrency);
+  }
   if (typeof deal.pricing === 'number') {
     return (await convertDealPricing(deal.pricing, sourceCurrency, targetCurrency)) as number;
   }
@@ -754,7 +774,10 @@ export const getDealsWithCurrencyConversion = async (
     // If filterDate is provided, filter deals that have pricing for that date
     if (filterDate) {
       processedDeals = deals.filter(deal => {
-        // If pricing is a number (private deal), it applies to all dates, so we keep it
+        // Private deals apply to all dates, so we keep them
+        if (deal.pricing && typeof deal.pricing === 'object' && !Array.isArray(deal.pricing) && 'totalPrice' in deal.pricing) {
+          return true;
+        }
         if (typeof deal.pricing === 'number') {
           return true;
         }
@@ -775,6 +798,9 @@ export const getDealsWithCurrencyConversion = async (
 
       // For filtered deals, only keep pricing for the specific date (if it's array based)
       processedDeals = processedDeals.map(deal => {
+        if (deal.pricing && typeof deal.pricing === 'object' && !Array.isArray(deal.pricing) && 'totalPrice' in deal.pricing) {
+          return deal;
+        }
         if (typeof deal.pricing === 'number') {
           return deal;
         }

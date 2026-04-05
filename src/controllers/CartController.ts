@@ -180,7 +180,7 @@ export const addItemToCart = async (req: Request, res: Response): Promise<any> =
       cartId = getOrCreateSessionId(req);
     }
 
-    const { activity, deal, bookingDate, numberOfAdults, numberOfChildren } = req.body;
+    let { activity, deal, bookingDate, numberOfAdults, numberOfChildren } = req.body;
     const { currency } = req.query;
 
     // Validate input
@@ -214,13 +214,25 @@ export const addItemToCart = async (req: Request, res: Response): Promise<any> =
     }
 
     // Pricing logic
-    // Pricing logic
     let adultPrice: number;
     let childPrice: number;
+    let subtotal: number;
+    let isFixedPrice = false;
 
-    if (typeof dealDoc.pricing === 'number') {
+    if (dealDoc.pricing && typeof dealDoc.pricing === 'object' && !Array.isArray(dealDoc.pricing) && 'totalPrice' in (dealDoc.pricing as any)) {
+      // New private deal format: fixed total price for the group
+      const privatePricing = dealDoc.pricing as any;
+      adultPrice = 0;
+      childPrice = 0;
+      subtotal = privatePricing.totalPrice;
+      numberOfAdults = privatePricing.numberOfAdults;
+      numberOfChildren = privatePricing.numberOfChildren;
+      isFixedPrice = true;
+    } else if (typeof dealDoc.pricing === 'number') {
+      // Legacy private deal format: price per person
       adultPrice = dealDoc.pricing;
       childPrice = dealDoc.pricing;
+      subtotal = (numberOfAdults * adultPrice) + (numberOfChildren * childPrice);
     } else if (Array.isArray(dealDoc.pricing)) {
       const pricing = (dealDoc.pricing as any[])
         .filter(p => new Date(p.date) <= parsedDate)
@@ -231,11 +243,10 @@ export const addItemToCart = async (req: Request, res: Response): Promise<any> =
       }
       adultPrice = pricing.adultPrice;
       childPrice = pricing.childPrice;
+      subtotal = (numberOfAdults * adultPrice) + (numberOfChildren * childPrice);
     } else {
       return res.status(400).json({ message: 'Invalid pricing configuration' });
     }
-
-    const subtotal = (numberOfAdults * adultPrice) + (numberOfChildren * childPrice);
 
     // Create the cart item
     const newItem: ICartItem = {
@@ -246,7 +257,8 @@ export const addItemToCart = async (req: Request, res: Response): Promise<any> =
       numberOfChildren,
       adultPrice,
       childPrice,
-      subtotal
+      subtotal,
+      isFixedPrice
     };
 
     // If cart doesn't exist, create a new one and add the item
@@ -463,19 +475,22 @@ export const updateCartItem = async (req: Request, res: Response): Promise<any> 
       });
     }
 
-    // Update quantities
-    if (typeof numberOfAdults === 'number' && numberOfAdults >= 0) {
-      cart.items[index].numberOfAdults = numberOfAdults;
-    }
+    // For fixed-price private deals, do not allow quantity changes
+    if (!cart.items[index].isFixedPrice) {
+      // Update quantities
+      if (typeof numberOfAdults === 'number' && numberOfAdults >= 0) {
+        cart.items[index].numberOfAdults = numberOfAdults;
+      }
 
-    if (typeof numberOfChildren === 'number' && numberOfChildren >= 0) {
-      cart.items[index].numberOfChildren = numberOfChildren;
-    }
+      if (typeof numberOfChildren === 'number' && numberOfChildren >= 0) {
+        cart.items[index].numberOfChildren = numberOfChildren;
+      }
 
-    // Recalculate subtotal
-    cart.items[index].subtotal =
-      (cart.items[index].numberOfAdults * cart.items[index].adultPrice) +
-      (cart.items[index].numberOfChildren * cart.items[index].childPrice);
+      // Recalculate subtotal
+      cart.items[index].subtotal =
+        (cart.items[index].numberOfAdults * cart.items[index].adultPrice) +
+        (cart.items[index].numberOfChildren * cart.items[index].childPrice);
+    }
 
     // Reset expiry and save cart
     cart.expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours from now

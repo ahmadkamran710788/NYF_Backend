@@ -395,8 +395,12 @@ const handleDealEnquiry = async (req: Request, res: Response, enquiryData: any, 
   let adultPrice = 0;
   let childPrice = 0;
 
-  if (typeof dealExists.pricing === 'number') {
-    // Private deal: single price for both
+  if (dealExists.pricing && typeof dealExists.pricing === 'object' && !Array.isArray(dealExists.pricing) && 'totalPrice' in (dealExists.pricing as any)) {
+    // New private deal: fixed group price
+    adultPrice = 0;
+    childPrice = 0;
+  } else if (typeof dealExists.pricing === 'number') {
+    // Legacy private deal: single price for both
     adultPrice = dealExists.pricing;
     childPrice = dealExists.pricing;
   } else if (Array.isArray(dealExists.pricing)) {

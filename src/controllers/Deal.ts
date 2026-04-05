@@ -50,9 +50,16 @@ export const createDeal = async (req: Request, res: Response): Promise<any> => {
 
     let parsedPricing;
     if (dealType === 'private') {
-      parsedPricing = Number(pricing);
-      if (isNaN(parsedPricing)) {
-        return res.status(400).json({ message: 'Invalid pricing for private deal' });
+      parsedPricing = typeof pricing === 'string' ? JSON.parse(pricing) : pricing;
+      if (!parsedPricing || typeof parsedPricing.totalPrice !== 'number' || isNaN(parsedPricing.totalPrice)) {
+        return res.status(400).json({ message: 'Invalid pricing for private deal. Must include totalPrice.' });
+      }
+      if (typeof parsedPricing.numberOfAdults !== 'number' || typeof parsedPricing.numberOfChildren !== 'number') {
+        return res.status(400).json({ message: 'Private deal must specify numberOfAdults and numberOfChildren.' });
+      }
+      parsedPricing.numberOfPeople = parsedPricing.numberOfAdults + parsedPricing.numberOfChildren;
+      if (parsedPricing.numberOfPeople < 1) {
+        return res.status(400).json({ message: 'Private deal must have at least 1 person.' });
       }
     } else {
       parsedPricing = typeof pricing === 'string' ? JSON.parse(pricing) : pricing;
@@ -387,9 +394,16 @@ export const updateDeal = async (req: Request, res: Response): Promise<any> => {
     if (updateData.pricing !== undefined) {
       const dealType = updateData.dealType;
       if (dealType === 'private') {
-        updateData.pricing = Number(updateData.pricing);
-        if (isNaN(updateData.pricing)) {
-          return res.status(400).json({ message: 'Invalid pricing for private deal' });
+        updateData.pricing = typeof updateData.pricing === 'string' ? JSON.parse(updateData.pricing) : updateData.pricing;
+        if (!updateData.pricing || typeof updateData.pricing.totalPrice !== 'number' || isNaN(updateData.pricing.totalPrice)) {
+          return res.status(400).json({ message: 'Invalid pricing for private deal. Must include totalPrice.' });
+        }
+        if (typeof updateData.pricing.numberOfAdults !== 'number' || typeof updateData.pricing.numberOfChildren !== 'number') {
+          return res.status(400).json({ message: 'Private deal must specify numberOfAdults and numberOfChildren.' });
+        }
+        updateData.pricing.numberOfPeople = updateData.pricing.numberOfAdults + updateData.pricing.numberOfChildren;
+        if (updateData.pricing.numberOfPeople < 1) {
+          return res.status(400).json({ message: 'Private deal must have at least 1 person.' });
         }
       } else {
         if (typeof updateData.pricing === 'string') {
@@ -795,7 +809,10 @@ export const getDealsPricingByActivityAndDate = async (req: Request, res: Respon
       // The service expects array or number.
       // If public and single object, wrap in array for service.
       let pricingForService;
-      if (typeof d.pricing === 'number') {
+      if (d.pricing && typeof d.pricing === 'object' && !Array.isArray(d.pricing) && 'totalPrice' in d.pricing) {
+        // New private deal format: pass object as-is
+        pricingForService = d.pricing;
+      } else if (typeof d.pricing === 'number') {
         pricingForService = d.pricing;
       } else if (d.pricing && !Array.isArray(d.pricing)) {
         pricingForService = [d.pricing];
@@ -836,7 +853,9 @@ export const getDealsPricingByActivityAndDate = async (req: Request, res: Respon
     // Transform the result to match the original expected format
     const formattedDeals = convertedResponse.data.map(deal => {
       let pricingOutput = null;
-      if (typeof deal.pricing === 'number') {
+      if (deal.pricing && typeof deal.pricing === 'object' && !Array.isArray(deal.pricing) && 'totalPrice' in deal.pricing) {
+        pricingOutput = deal.pricing;
+      } else if (typeof deal.pricing === 'number') {
         pricingOutput = deal.pricing;
       } else if (Array.isArray(deal.pricing) && deal.pricing.length > 0) {
         pricingOutput = {

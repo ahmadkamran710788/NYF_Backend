@@ -5,13 +5,20 @@ export interface IDealPricing {
   childPrice: number;
 }
 
+export interface IPrivateDealPricing {
+  totalPrice: number;
+  numberOfPeople: number;
+  numberOfAdults: number;
+  numberOfChildren: number;
+}
+
 // Interface for Deal
 export interface IDeal extends Document {
   activity: mongoose.Types.ObjectId;
   title: string;
   description: string;
   dealType: "public" | "private";
-  pricing: IDealPricing[] | number;
+  pricing: IDealPricing[] | IPrivateDealPricing;
   includes: string[];
   highlights: string[];
   restrictions?: string[];

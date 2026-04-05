@@ -243,12 +243,22 @@ const generateBookingReference = (): string => {
  * @returns Total price for the booking
  */
 const calculateTotalPrice = (
-  deal: any, 
-  bookingDate: Date, 
-  numberOfAdults: number, 
+  deal: any,
+  bookingDate: Date,
+  numberOfAdults: number,
   numberOfChildren: number
 ): number => {
-  // Find the most recent pricing for the booking date
+  // New private deal format: fixed total price
+  if (deal.pricing && typeof deal.pricing === 'object' && !Array.isArray(deal.pricing) && 'totalPrice' in deal.pricing) {
+    return deal.pricing.totalPrice;
+  }
+
+  // Legacy private deal: flat price per person
+  if (typeof deal.pricing === 'number') {
+    return (numberOfAdults + numberOfChildren) * deal.pricing;
+  }
+
+  // Public deal: find the most recent pricing for the booking date
   const pricing = deal.pricing
     .filter((p: any) => p.date <= bookingDate)
     .sort((a: any, b: any) => b.date.getTime() - a.date.getTime())[0];
@@ -257,7 +267,6 @@ const calculateTotalPrice = (
     throw new Error('No pricing found for the selected date');
   }
 
-  // Calculate total price
   const adultPrice = pricing.adultPrice;
   const childPrice = pricing.childPrice;
 
