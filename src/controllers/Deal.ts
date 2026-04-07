@@ -1102,6 +1102,9 @@ export const addBulkDealPricing = async (req: Request, res: Response): Promise<a
     // Reassign back to tell Mongoose it changed (though usually push works on doc array)
     deal.pricing = pricingArray;
 
+    // Mongoose Mixed type fields require explicit markModified to persist changes
+    deal.markModified('pricing');
+
     // Save the updated deal
     await deal.save();
 
@@ -1230,6 +1233,9 @@ export const updateBulkDealPricing = async (req: Request, res: Response): Promis
 
     deal.pricing = pricingArray;
 
+    // Mongoose Mixed type fields require explicit markModified to persist changes
+    deal.markModified('pricing');
+
     // Save the updated deal
     await deal.save();
 
@@ -1332,6 +1338,9 @@ export const deleteBulkDealPricing = async (req: Request, res: Response): Promis
 
     deal.pricing = filteredPricing;
     const deletedCount = originalLength - filteredPricing.length;
+
+    // Mongoose Mixed type fields require explicit markModified to persist changes
+    deal.markModified('pricing');
 
     // Save the updated deal
     await deal.save();
