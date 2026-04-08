@@ -39,7 +39,8 @@ export const createDeal = async (req: Request, res: Response): Promise<any> => {
       includes,
       highlights,
       restrictions,
-      dealType = "public"
+      dealType = "public",
+      privateTransport
     } = req.body;
 
     // Validate activity exists
@@ -65,6 +66,19 @@ export const createDeal = async (req: Request, res: Response): Promise<any> => {
       parsedPricing = typeof pricing === 'string' ? JSON.parse(pricing) : pricing;
     }
 
+    // Parse privateTransport - only valid for private deals
+    let parsedPrivateTransport = { enabled: false, price: 0 };
+    if (dealType === 'private' && privateTransport !== undefined) {
+      const pt = typeof privateTransport === 'string' ? JSON.parse(privateTransport) : privateTransport;
+      if (pt && typeof pt.enabled === 'boolean') {
+        const ptPrice = Number(pt.price);
+        if (isNaN(ptPrice) || ptPrice < 0) {
+          return res.status(400).json({ message: 'Private transport price must be a non-negative number.' });
+        }
+        parsedPrivateTransport = { enabled: pt.enabled, price: ptPrice };
+      }
+    }
+
     // Create new deal object (without saving it yet)
     const newDeal = new Deal({
       activity,
@@ -74,7 +88,8 @@ export const createDeal = async (req: Request, res: Response): Promise<any> => {
       pricing: parsedPricing,
       includes: typeof includes === 'string' ? JSON.parse(includes) : includes,
       highlights: typeof highlights === 'string' ? JSON.parse(highlights) : highlights,
-      restrictions: restrictions ? (typeof restrictions === 'string' ? JSON.parse(restrictions) : restrictions) : []
+      restrictions: restrictions ? (typeof restrictions === 'string' ? JSON.parse(restrictions) : restrictions) : [],
+      privateTransport: parsedPrivateTransport
     });
 
     // Handle image upload if a file was provided
@@ -409,6 +424,23 @@ export const updateDeal = async (req: Request, res: Response): Promise<any> => {
         if (typeof updateData.pricing === 'string') {
           updateData.pricing = JSON.parse(updateData.pricing);
         }
+      }
+    }
+
+    // Parse privateTransport - only meaningful for private deals
+    if (updateData.privateTransport !== undefined) {
+      const pt = typeof updateData.privateTransport === 'string'
+        ? JSON.parse(updateData.privateTransport)
+        : updateData.privateTransport;
+      if (updateData.dealType === 'private' && pt && typeof pt.enabled === 'boolean') {
+        const ptPrice = Number(pt.price);
+        if (isNaN(ptPrice) || ptPrice < 0) {
+          return res.status(400).json({ message: 'Private transport price must be a non-negative number.' });
+        }
+        updateData.privateTransport = { enabled: pt.enabled, price: ptPrice };
+      } else {
+        // Force defaults for public deals or invalid input
+        updateData.privateTransport = { enabled: false, price: 0 };
       }
     }
 
@@ -831,6 +863,7 @@ export const getDealsPricingByActivityAndDate = async (req: Request, res: Respon
         dealType: d.dealType || 'public',
         pricing: pricingForService,
         baseCurrency: d.baseCurrency || 'AED',
+        privateTransport: d.privateTransport,
         activity: activityData ? {
           _id: activityData._id,
           name: activityData.name,
@@ -874,6 +907,7 @@ export const getDealsPricingByActivityAndDate = async (req: Request, res: Respon
         image: deal.image,
         dealType: deal.dealType,
         pricing: pricingOutput,
+        privateTransport: deal.privateTransport,
         activityDetails: deal.activity ? {
           name: deal.activity.name,
           category: deal.activity.category

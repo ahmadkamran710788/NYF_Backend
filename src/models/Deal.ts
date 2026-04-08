@@ -23,6 +23,10 @@ export interface IDeal extends Document {
   highlights: string[];
   restrictions?: string[];
   image: string;
+  privateTransport?: {
+    enabled: boolean;
+    price: number;
+  };
 }
 
 
@@ -62,7 +66,11 @@ const DealSchema = new Schema({
   }],
   restrictions: [{
     type: String
-  }]
+  }],
+  privateTransport: {
+    enabled: { type: Boolean, default: false },
+    price: { type: Number, default: 0 }
+  }
 }, {
   timestamps: true
 });

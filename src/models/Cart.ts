@@ -12,6 +12,9 @@ export interface ICartItem {
   childPrice: number;
   subtotal: number;
   isFixedPrice: boolean;
+  withTransport: boolean;
+  transportPrice: number;
+  quantity: number;
 }
 
 // Interface for cart
@@ -71,6 +74,19 @@ const CartSchema = new Schema({
     isFixedPrice: {
       type: Boolean,
       default: false
+    },
+    withTransport: {
+      type: Boolean,
+      default: false
+    },
+    transportPrice: {
+      type: Number,
+      default: 0
+    },
+    quantity: {
+      type: Number,
+      default: 1,
+      min: 1
     }
   }],
   totalAmount: { 

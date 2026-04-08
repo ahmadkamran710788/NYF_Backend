@@ -433,6 +433,7 @@ export interface CleanedDeal {
   activity?: CleanedActivityDetails;
   createdAt?: Date;
   updatedAt?: Date;
+  privateTransport?: { enabled: boolean; price: number };
 }
 
 export interface DealCurrencyConversionResponse {
@@ -668,6 +669,26 @@ export const convertDealWithCleanResponse = async (
     targetCurrency
   );
 
+  // Convert privateTransport price if present
+  let convertedPrivateTransport: { enabled: boolean; price: number } | undefined;
+  if (deal.privateTransport && typeof deal.privateTransport === 'object') {
+    let price = Number(deal.privateTransport.price) || 0;
+    if (sourceCurrency !== targetCurrency && price > 0) {
+      if (sourceCurrency === 'AED') {
+        price = await convertFromAED(price, targetCurrency);
+      } else if (targetCurrency === 'AED') {
+        price = await convertToAED(price, sourceCurrency);
+      } else {
+        const inAED = await convertToAED(price, sourceCurrency);
+        price = await convertFromAED(inAED, targetCurrency);
+      }
+    }
+    convertedPrivateTransport = {
+      enabled: !!deal.privateTransport.enabled,
+      price,
+    };
+  }
+
   return {
     _id: deal._id,
     title: deal.title,
@@ -682,6 +703,7 @@ export const convertDealWithCleanResponse = async (
     activity: deal.activity ? cleanActivityDetails(deal.activity) : undefined,
     createdAt: deal.createdAt,
     updatedAt: deal.updatedAt,
+    privateTransport: convertedPrivateTransport,
   };
 };
 

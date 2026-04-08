@@ -180,7 +180,7 @@ export const addItemToCart = async (req: Request, res: Response): Promise<any> =
       cartId = getOrCreateSessionId(req);
     }
 
-    let { activity, deal, bookingDate, numberOfAdults, numberOfChildren } = req.body;
+    let { activity, deal, bookingDate, numberOfAdults, numberOfChildren, withTransport } = req.body;
     const { currency } = req.query;
 
     // Validate input
@@ -219,14 +219,27 @@ export const addItemToCart = async (req: Request, res: Response): Promise<any> =
     let subtotal: number;
     let isFixedPrice = false;
 
+    // Quantity is auto-derived for fixed-price private deals; defaults to 1 elsewhere
+    let dealQuantity = 1;
+
     if (dealDoc.pricing && typeof dealDoc.pricing === 'object' && !Array.isArray(dealDoc.pricing) && 'totalPrice' in (dealDoc.pricing as any)) {
       // New private deal format: fixed total price for the group
       const privatePricing = dealDoc.pricing as any;
+      const baseAdults = Number(privatePricing.numberOfAdults) || 0;
+      const baseChildren = Number(privatePricing.numberOfChildren) || 0;
+      const reqAdults = Number(numberOfAdults) || 0;
+      const reqChildren = Number(numberOfChildren) || 0;
+
+      const adultsNeeded = baseAdults > 0 ? Math.ceil(reqAdults / baseAdults) : 0;
+      const childrenNeeded = baseChildren > 0 ? Math.ceil(reqChildren / baseChildren) : 0;
+      dealQuantity = Math.max(1, adultsNeeded, childrenNeeded);
+
       adultPrice = 0;
       childPrice = 0;
-      subtotal = privatePricing.totalPrice;
-      numberOfAdults = privatePricing.numberOfAdults;
-      numberOfChildren = privatePricing.numberOfChildren;
+      subtotal = privatePricing.totalPrice * dealQuantity;
+      // Store the requested counts (NOT base × quantity) so display shows what user asked for
+      numberOfAdults = reqAdults;
+      numberOfChildren = reqChildren;
       isFixedPrice = true;
     } else if (typeof dealDoc.pricing === 'number') {
       // Legacy private deal format: price per person
@@ -248,6 +261,20 @@ export const addItemToCart = async (req: Request, res: Response): Promise<any> =
       return res.status(400).json({ message: 'Invalid pricing configuration' });
     }
 
+    // Private Two-Way Transport add-on (private deals only)
+    const isPrivateDeal = isFixedPrice || typeof dealDoc.pricing === 'number';
+    let finalWithTransport = false;
+    let transportPrice = 0;
+    if (isPrivateDeal && withTransport === true && dealDoc.privateTransport?.enabled === true) {
+      transportPrice = Number(dealDoc.privateTransport.price) || 0;
+      finalWithTransport = true;
+      // Transport scales with the number of deal instances for fixed-price deals
+      subtotal = subtotal + (transportPrice * (isFixedPrice ? dealQuantity : 1));
+    }
+
+    // Quantity only meaningful for fixed-price private deals
+    const finalQuantity = isFixedPrice ? dealQuantity : 1;
+
     // Create the cart item
     const newItem: ICartItem = {
       activity: new mongoose.Types.ObjectId(activity),
@@ -258,7 +285,10 @@ export const addItemToCart = async (req: Request, res: Response): Promise<any> =
       adultPrice,
       childPrice,
       subtotal,
-      isFixedPrice
+      isFixedPrice,
+      withTransport: finalWithTransport,
+      transportPrice,
+      quantity: finalQuantity
     };
 
     // If cart doesn't exist, create a new one and add the item
@@ -486,10 +516,12 @@ export const updateCartItem = async (req: Request, res: Response): Promise<any> 
         cart.items[index].numberOfChildren = numberOfChildren;
       }
 
-      // Recalculate subtotal
+      // Recalculate subtotal (preserve any transport add-on already on this item)
+      const transportOnItem = cart.items[index].withTransport ? (cart.items[index].transportPrice || 0) : 0;
       cart.items[index].subtotal =
         (cart.items[index].numberOfAdults * cart.items[index].adultPrice) +
-        (cart.items[index].numberOfChildren * cart.items[index].childPrice);
+        (cart.items[index].numberOfChildren * cart.items[index].childPrice) +
+        transportOnItem;
     }
 
     // Reset expiry and save cart
