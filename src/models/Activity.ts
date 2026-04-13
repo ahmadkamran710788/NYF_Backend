@@ -103,7 +103,6 @@ const ActivitySchema = new Schema({
   name: { type: String, required: true },
   category: {
     type: String,
-    enum: Object.values(ActivityCategory),
     required: true,
   },
   city: { type: Schema.Types.ObjectId, ref: "City", required: true },

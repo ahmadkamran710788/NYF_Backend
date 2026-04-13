@@ -248,9 +248,10 @@ const calculateTotalPrice = (
   numberOfAdults: number,
   numberOfChildren: number
 ): number => {
-  // New private deal format: fixed total price
+  // Private deal: ticket-based pricing
   if (deal.pricing && typeof deal.pricing === 'object' && !Array.isArray(deal.pricing) && 'totalPrice' in deal.pricing) {
-    return deal.pricing.totalPrice;
+    const totalPeople = numberOfAdults + numberOfChildren;
+    return deal.pricing.totalPrice + Math.max(0, totalPeople - 1) * (Number(deal.pricing.ticketPrice) || 0);
   }
 
   // Legacy private deal: flat price per person

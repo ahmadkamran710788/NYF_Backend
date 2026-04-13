@@ -1,6 +1,7 @@
 // src/controllers/activityController.ts
 import { Request, Response } from "express";
-import { Activity, ActivityCategory } from "../models/Activity";
+import { Activity } from "../models/Activity";
+import { Category } from "../models/Category";
 import { City } from "../models/City";
 import { Country } from "../models/Country";
 import { Continent } from "../models/Continent";
@@ -34,6 +35,12 @@ const buildActivityFilter = (query: any) => {
     }
   }
 
+  // Name search filter (case-insensitive)
+  if (query.search && String(query.search).trim() !== "") {
+    const escaped = String(query.search).trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    filter.name = { $regex: escaped, $options: "i" };
+  }
+
   return filter;
 };
 
@@ -42,10 +49,9 @@ export const getAllCategory = async (
   res: Response
 ): Promise<any> => {
   try {
-    // Get all categories as an array from the enum
-    const categories = Object.values(ActivityCategory);
+    const categoryDocs = await Category.find().sort({ createdAt: -1 });
+    const categories = categoryDocs.map((c) => c.name);
 
-    // Return the categories
     return res.status(200).json({
       success: true,
       count: categories.length,
@@ -534,10 +540,9 @@ export const getActivitiesByCategory = async (
     // Get target currency (default to AED)
     const targetCurrency = (currency as string) || 'AED';
 
-    // Validate category
-    if (
-      !Object.values(ActivityCategory).includes(category as ActivityCategory)
-    ) {
+    // Validate category against DB
+    const validCategory = await Category.findOne({ name: category });
+    if (!validCategory) {
       return res.status(400).json({
         success: false,
         message: "Invalid category",
@@ -833,10 +838,9 @@ export const addActivity = async (
 
     let imageUrls: string[] = [];
 
-    // Validate category
-    if (
-      !Object.values(ActivityCategory).includes(category as ActivityCategory)
-    ) {
+    // Validate category against DB
+    const validCategory = await Category.findOne({ name: category });
+    if (!validCategory) {
       return res.status(400).json({
         success: false,
         message: "Invalid category",
@@ -1116,14 +1120,14 @@ console.log(req.body)
     }
 
     // Validate category if provided
-    if (
-      category &&
-      !Object.values(ActivityCategory).includes(category as ActivityCategory)
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid category",
-      });
+    if (category) {
+      const validCategory = await Category.findOne({ name: category });
+      if (!validCategory) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid category",
+        });
+      }
     }
 
     // Parse highlights array if it comes as string

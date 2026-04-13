@@ -596,11 +596,17 @@ const convertDealPricing = async (
     const converted = { ...pricing };
     if (sourceCurrency === 'AED') {
       converted.totalPrice = await convertFromAED(pricing.totalPrice, targetCurrency);
+      if (converted.ticketPrice) converted.ticketPrice = await convertFromAED(pricing.ticketPrice, targetCurrency);
     } else if (targetCurrency === 'AED') {
       converted.totalPrice = await convertToAED(pricing.totalPrice, sourceCurrency);
+      if (converted.ticketPrice) converted.ticketPrice = await convertToAED(pricing.ticketPrice, sourceCurrency);
     } else {
       const priceInAED = await convertToAED(pricing.totalPrice, sourceCurrency);
       converted.totalPrice = await convertFromAED(priceInAED, targetCurrency);
+      if (converted.ticketPrice) {
+        const ticketInAED = await convertToAED(pricing.ticketPrice, sourceCurrency);
+        converted.ticketPrice = await convertFromAED(ticketInAED, targetCurrency);
+      }
     }
     return converted;
   }
