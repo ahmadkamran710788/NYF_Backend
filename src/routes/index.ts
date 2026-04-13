@@ -19,6 +19,7 @@ import hotelRoutes from "./hotel";
 import supplierRoutes from "./supplier";
 import customerRoutes from "./customer";
 import offerRoutes from "./offer";
+import categoryRoutes from "./category";
 const router = express.Router();
 
 router.use("/continents", continentRoutes);
@@ -41,4 +42,5 @@ router.use("/hotel", hotelRoutes);
 router.use("/supplier", supplierRoutes);
 router.use("/customer", customerRoutes);
 router.use("/offer", offerRoutes);
+router.use("/category", categoryRoutes);
 export default router;

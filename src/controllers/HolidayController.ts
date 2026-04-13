@@ -8,17 +8,63 @@ import { Country } from "../models/Country";
 import { convertPackagesWithCleanResponse, convertPackageWithCleanResponse } from "../services/currencyExchangePackage";
 export const getAllPackages = async (req: Request, res: Response): Promise<void> => {
   try {
-    const currency = req.query.currency as string || 'AED';
-    
-    const packages = await HolidayPackage.find().populate('destination').populate('itinerary.activities')
-   .lean() // Convert to plain JavaScript object for easier manipulation
-      .exec();
-    
-      
+    const currency = (req.query.currency as string) || 'AED';
+
+    // Build filter for name search and price range (admin-side filtering)
+    const filter: any = {};
+
+    if (req.query.search && String(req.query.search).trim() !== '') {
+      const escaped = String(req.query.search).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      filter.name = { $regex: escaped, $options: 'i' };
+    }
+
+    if (req.query.minPrice || req.query.maxPrice) {
+      filter.discountPrice = {};
+      if (req.query.minPrice) filter.discountPrice.$gte = Number(req.query.minPrice);
+      if (req.query.maxPrice) filter.discountPrice.$lte = Number(req.query.maxPrice);
+    }
+
+    // Pagination — only applied when `page` query param is provided.
+    // This keeps backwards-compatibility with any existing consumer that
+    // expects the full unpaginated list.
+    const isPaginated = req.query.page !== undefined;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const skip = (page - 1) * limit;
+
+    const query = HolidayPackage.find(filter)
+      .populate('destination')
+      .populate('itinerary.activities');
+
+    if (isPaginated) {
+      query.skip(skip).limit(limit);
+    }
+
+    const [packages, totalItems] = await Promise.all([
+      query.lean().exec(),
+      isPaginated ? HolidayPackage.countDocuments(filter) : Promise.resolve(0),
+    ]);
+
     // Convert prices to requested currency
     const convertedPackages = await convertPackagesWithCleanResponse(packages, currency);
-    
-    res.status(200).json( convertedPackages );
+
+    if (isPaginated) {
+      const totalPages = Math.ceil(totalItems / limit);
+      res.status(200).json({
+        ...convertedPackages,
+        pagination: {
+          totalItems,
+          totalPages,
+          currentPage: page,
+          itemsPerPage: limit,
+          hasNextPage: page < totalPages,
+          hasPrevPage: page > 1,
+        },
+      });
+      return;
+    }
+
+    res.status(200).json(convertedPackages);
   } catch (error) {
     res.status(500).json({ success: false, error: error });
   }

@@ -55,13 +55,14 @@ export const createDeal = async (req: Request, res: Response): Promise<any> => {
       if (!parsedPricing || typeof parsedPricing.totalPrice !== 'number' || isNaN(parsedPricing.totalPrice)) {
         return res.status(400).json({ message: 'Invalid pricing for private deal. Must include totalPrice.' });
       }
-      if (typeof parsedPricing.numberOfAdults !== 'number' || typeof parsedPricing.numberOfChildren !== 'number') {
-        return res.status(400).json({ message: 'Private deal must specify numberOfAdults and numberOfChildren.' });
+      if (typeof parsedPricing.ticketPrice !== 'number' || isNaN(parsedPricing.ticketPrice) || parsedPricing.ticketPrice < 0) {
+        return res.status(400).json({ message: 'Private deal must specify a valid ticketPrice (>= 0).' });
       }
-      parsedPricing.numberOfPeople = parsedPricing.numberOfAdults + parsedPricing.numberOfChildren;
-      if (parsedPricing.numberOfPeople < 1) {
-        return res.status(400).json({ message: 'Private deal must have at least 1 person.' });
+      const maxPeople = Number(parsedPricing.maxPeople);
+      if (!Number.isFinite(maxPeople) || maxPeople < 1) {
+        return res.status(400).json({ message: 'Private deal must specify maxPeople (>= 1).' });
       }
+      parsedPricing = { totalPrice: parsedPricing.totalPrice, ticketPrice: parsedPricing.ticketPrice, maxPeople: Math.floor(maxPeople) };
     } else {
       parsedPricing = typeof pricing === 'string' ? JSON.parse(pricing) : pricing;
     }
@@ -413,13 +414,14 @@ export const updateDeal = async (req: Request, res: Response): Promise<any> => {
         if (!updateData.pricing || typeof updateData.pricing.totalPrice !== 'number' || isNaN(updateData.pricing.totalPrice)) {
           return res.status(400).json({ message: 'Invalid pricing for private deal. Must include totalPrice.' });
         }
-        if (typeof updateData.pricing.numberOfAdults !== 'number' || typeof updateData.pricing.numberOfChildren !== 'number') {
-          return res.status(400).json({ message: 'Private deal must specify numberOfAdults and numberOfChildren.' });
+        if (typeof updateData.pricing.ticketPrice !== 'number' || isNaN(updateData.pricing.ticketPrice) || updateData.pricing.ticketPrice < 0) {
+          return res.status(400).json({ message: 'Private deal must specify a valid ticketPrice (>= 0).' });
         }
-        updateData.pricing.numberOfPeople = updateData.pricing.numberOfAdults + updateData.pricing.numberOfChildren;
-        if (updateData.pricing.numberOfPeople < 1) {
-          return res.status(400).json({ message: 'Private deal must have at least 1 person.' });
+        const maxPeople = Number(updateData.pricing.maxPeople);
+        if (!Number.isFinite(maxPeople) || maxPeople < 1) {
+          return res.status(400).json({ message: 'Private deal must specify maxPeople (>= 1).' });
         }
+        updateData.pricing = { totalPrice: updateData.pricing.totalPrice, ticketPrice: updateData.pricing.ticketPrice, maxPeople: Math.floor(maxPeople) };
       } else {
         if (typeof updateData.pricing === 'string') {
           updateData.pricing = JSON.parse(updateData.pricing);

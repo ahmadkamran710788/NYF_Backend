@@ -219,25 +219,21 @@ export const addItemToCart = async (req: Request, res: Response): Promise<any> =
     let subtotal: number;
     let isFixedPrice = false;
 
-    // Quantity is auto-derived for fixed-price private deals; defaults to 1 elsewhere
-    let dealQuantity = 1;
-
     if (dealDoc.pricing && typeof dealDoc.pricing === 'object' && !Array.isArray(dealDoc.pricing) && 'totalPrice' in (dealDoc.pricing as any)) {
-      // New private deal format: fixed total price for the group
+      // Private deal: ticket-based pricing
       const privatePricing = dealDoc.pricing as any;
-      const baseAdults = Number(privatePricing.numberOfAdults) || 0;
-      const baseChildren = Number(privatePricing.numberOfChildren) || 0;
       const reqAdults = Number(numberOfAdults) || 0;
       const reqChildren = Number(numberOfChildren) || 0;
+      const totalPeople = reqAdults + reqChildren;
+      const maxPeople = Number(privatePricing.maxPeople) || 1;
 
-      const adultsNeeded = baseAdults > 0 ? Math.ceil(reqAdults / baseAdults) : 0;
-      const childrenNeeded = baseChildren > 0 ? Math.ceil(reqChildren / baseChildren) : 0;
-      dealQuantity = Math.max(1, adultsNeeded, childrenNeeded);
+      if (totalPeople > maxPeople) {
+        return res.status(400).json({ message: `Maximum ${maxPeople} people allowed. Contact support to add more.` });
+      }
 
       adultPrice = 0;
       childPrice = 0;
-      subtotal = privatePricing.totalPrice * dealQuantity;
-      // Store the requested counts (NOT base × quantity) so display shows what user asked for
+      subtotal = privatePricing.totalPrice + Math.max(0, totalPeople - 1) * (Number(privatePricing.ticketPrice) || 0);
       numberOfAdults = reqAdults;
       numberOfChildren = reqChildren;
       isFixedPrice = true;
@@ -268,12 +264,8 @@ export const addItemToCart = async (req: Request, res: Response): Promise<any> =
     if (isPrivateDeal && withTransport === true && dealDoc.privateTransport?.enabled === true) {
       transportPrice = Number(dealDoc.privateTransport.price) || 0;
       finalWithTransport = true;
-      // Transport scales with the number of deal instances for fixed-price deals
-      subtotal = subtotal + (transportPrice * (isFixedPrice ? dealQuantity : 1));
+      subtotal = subtotal + transportPrice;
     }
-
-    // Quantity only meaningful for fixed-price private deals
-    const finalQuantity = isFixedPrice ? dealQuantity : 1;
 
     // Create the cart item
     const newItem: ICartItem = {
@@ -287,8 +279,7 @@ export const addItemToCart = async (req: Request, res: Response): Promise<any> =
       subtotal,
       isFixedPrice,
       withTransport: finalWithTransport,
-      transportPrice,
-      quantity: finalQuantity
+      transportPrice
     };
 
     // If cart doesn't exist, create a new one and add the item
@@ -516,12 +507,10 @@ export const updateCartItem = async (req: Request, res: Response): Promise<any> 
         cart.items[index].numberOfChildren = numberOfChildren;
       }
 
-      // Recalculate subtotal (preserve any transport add-on already on this item)
-      const transportOnItem = cart.items[index].withTransport ? (cart.items[index].transportPrice || 0) : 0;
+      // Recalculate subtotal
       cart.items[index].subtotal =
         (cart.items[index].numberOfAdults * cart.items[index].adultPrice) +
-        (cart.items[index].numberOfChildren * cart.items[index].childPrice) +
-        transportOnItem;
+        (cart.items[index].numberOfChildren * cart.items[index].childPrice);
     }
 
     // Reset expiry and save cart
