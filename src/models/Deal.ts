@@ -6,10 +6,9 @@ export interface IDealPricing {
 }
 
 export interface IPrivateDealPricing {
-  totalPrice: number;
-  numberOfPeople: number;
-  numberOfAdults: number;
-  numberOfChildren: number;
+  totalPrice: number;   // Base price (includes 1 person)
+  ticketPrice: number;  // Price per additional person
+  maxPeople: number;    // Maximum people allowed
 }
 
 // Interface for Deal
